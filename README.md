@@ -1,5 +1,3 @@
-<img src="docs/logo.svg" alt="Airlock" width="120" height="120" />
-
 # Airlock 🔐
 
 [![License](https://img.shields.io/badge/License-PolyForm_Shield_1.0-blue)](LICENSE)
