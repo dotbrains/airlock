@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "Airlock Link Launcher",
+  "description": "Open links in disposable Airlock browser sessions.",
+  "version": "0.1.0",
+  "permissions": ["contextMenus", "storage", "tabs"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "airlock-link-launcher@dotbrains.com",
+      "strict_min_version": "109.0"
+    }
+  }
+}

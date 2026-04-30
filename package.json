@@ -1,0 +1,27 @@
+{
+  "name": "airlock",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Disposable browser session launcher with extension-triggered link isolation.",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "bun run --filter='*' build",
+    "dev:api": "bun run --filter @airlock/api dev",
+    "dev:worker": "bun run --filter @airlock/worker dev",
+    "format": "prettier --write \"**/*.{ts,js,json,html,css,md,yml}\"",
+    "format:check": "prettier --check \"**/*.{ts,js,json,html,css,md,yml}\"",
+    "lint": "oxlint apps packages",
+    "typecheck": "bun run --filter='*' typecheck",
+    "test": "bun run --filter='*' test"
+  },
+  "devDependencies": {
+    "oxlint": "^0.15.0",
+    "prettier": "^3.4.2"
+  },
+  "engines": {
+    "bun": ">=1.1.0"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "name": "@airlock/worker",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "format": "prettier --write \"src/**/*.{ts,js}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,js}\"",
+    "build": "bun run --filter @airlock/shared build && tsc -p tsconfig.json",
+    "dev": "bun --watch src/index.ts",
+    "start": "bun dist/index.js",
+    "typecheck": "bun run --filter @airlock/shared build && tsc --noEmit",
+    "test": "bun -e 'process.exit(0)'"
+  },
+  "dependencies": {
+    "@airlock/shared": "workspace:*",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.6.3"
+  }
+}

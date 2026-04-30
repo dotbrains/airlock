@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Airlock Extension Options</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        margin: 24px;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+      }
+
+      input {
+        width: 100%;
+        max-width: 480px;
+        padding: 8px;
+      }
+
+      button {
+        margin-top: 12px;
+        padding: 8px 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Airlock Extension Settings</h1>
+    <label for="apiBaseUrl">Airlock API Base URL</label>
+    <input id="apiBaseUrl" type="url" placeholder="http://localhost:8787" />
+    <button id="save">Save</button>
+    <p id="status"></p>
+    <script src="options.js"></script>
+  </body>
+</html>

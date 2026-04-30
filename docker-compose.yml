@@ -1,0 +1,29 @@
+services:
+  api:
+    image: oven/bun:1
+    working_dir: /workspace
+    volumes:
+      - ./:/workspace
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: sh -c "bun install && bun run --filter @airlock/api dev"
+    environment:
+      AIRLOCK_PORT: 8787
+      AIRLOCK_PUBLIC_BASE_URL: http://localhost:8787
+      AIRLOCK_SESSION_HOST: localhost
+      AIRLOCK_VNC_PASSWORD: change-me
+      AIRLOCK_DEFAULT_TTL_SECONDS: 1800
+      AIRLOCK_INTERNAL_TOKEN: local-dev-token
+    ports:
+      - "8787:8787"
+  worker:
+    image: oven/bun:1
+    working_dir: /workspace
+    volumes:
+      - ./:/workspace
+    command: sh -c "bun install && bun run --filter @airlock/worker dev"
+    depends_on:
+      - api
+    environment:
+      AIRLOCK_API_BASE_URL: http://api:8787
+      AIRLOCK_INTERNAL_TOKEN: local-dev-token
+      AIRLOCK_CLEANUP_INTERVAL_MS: 30000

@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "Airlock Link Launcher",
+  "description": "Open links in disposable Airlock browser sessions.",
+  "version": "0.1.0",
+  "permissions": ["contextMenus", "storage", "tabs"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "options_page": "options.html"
+}

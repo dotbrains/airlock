@@ -1,0 +1,64 @@
+export {
+  BROWSER_CATALOG,
+  BROWSER_KINDS,
+  browserProfile,
+  defaultBrowserImage,
+  isBrowserKind,
+  toBrowserKind
+} from "./browser-catalog";
+export type { BrowserCatalogEntry, BrowserKind } from "./browser-catalog";
+
+export { KASM_PROFILE } from "./container-profile";
+export type { ContainerImageProfile, LaunchEnvInput } from "./container-profile";
+
+export {
+  TTL_DEFAULT_SECONDS,
+  TTL_MAX_SECONDS,
+  TTL_MIN_SECONDS,
+  clampTtl,
+  expiresAt,
+  isExpired,
+  resolveTtl
+} from "./session-policy";
+export type { ResolveTtlInput } from "./session-policy";
+
+export {
+  SESSION_LABEL_KEYS,
+  decodeSessionLabels,
+  encodeSessionLabels,
+  isManagedLabels
+} from "./session-labels";
+export type { DecodedSessionLabels, SessionLabelInput } from "./session-labels";
+
+export { discoverEnvFile, toInteger, trimTrailingSlash } from "./bootstrap";
+export type { DiscoverEnvFileOptions } from "./bootstrap";
+
+export {
+  INTERNAL_PRUNE_PATH,
+  INTERNAL_TOKEN_HEADER,
+  InternalApiError,
+  createInternalApiClient
+} from "./internal-api";
+export type { InternalApiClient, InternalApiClientOptions, PruneResponse } from "./internal-api";
+
+export interface CreateSessionInput {
+  targetUrl: string;
+  browser: import("./browser-catalog").BrowserKind;
+  ttlSeconds: number;
+}
+
+export interface AirlockSession {
+  sessionId: string;
+  browser: import("./browser-catalog").BrowserKind;
+  targetUrl: string;
+  browserUrl: string;
+  createdAt: string;
+  expiresAt: string;
+}
+
+export interface SessionRuntime {
+  createSession(input: CreateSessionInput): Promise<AirlockSession>;
+  getSession(sessionId: string): Promise<AirlockSession | null>;
+  stopSession(sessionId: string): Promise<boolean>;
+  pruneExpiredSessions(now?: Date): Promise<number>;
+}
