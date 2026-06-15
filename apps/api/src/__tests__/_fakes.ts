@@ -5,6 +5,7 @@ export const makeSession = (overrides: Partial<AirlockSession> = {}): AirlockSes
   browser: "chromium",
   targetUrl: "https://example.com",
   browserUrl: "https://localhost:6901",
+  vncPassword: "test-vnc-password",
   createdAt: new Date().toISOString(),
   expiresAt: new Date(Date.now() + 60_000).toISOString(),
   ...overrides
@@ -15,13 +16,17 @@ export interface FakeSessionRuntimeOptions {
   onCreate?: (input: CreateSessionInput) => AirlockSession;
 }
 
+export interface FakeSessionRuntimeOptions2 extends FakeSessionRuntimeOptions {
+  pingResult?: boolean;
+}
+
 export interface FakeSessionRuntime extends SessionRuntime {
   readonly stopped: string[];
   readonly pruneCalls: number;
 }
 
 export const createFakeSessionRuntime = (
-  options: FakeSessionRuntimeOptions = {}
+  options: FakeSessionRuntimeOptions2 = {}
 ): FakeSessionRuntime => {
   let current: AirlockSession | null =
     options.initial === undefined ? makeSession() : options.initial;
@@ -56,6 +61,9 @@ export const createFakeSessionRuntime = (
     async pruneExpiredSessions(_now?: Date): Promise<number> {
       pruneCalls += 1;
       return 0;
+    },
+    async ping(): Promise<boolean> {
+      return options.pingResult ?? true;
     }
   };
 };

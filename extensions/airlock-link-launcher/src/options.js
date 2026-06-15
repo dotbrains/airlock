@@ -4,6 +4,7 @@ const DEFAULT_API_BASE_URL = "http://localhost:8787";
 const extAPI = typeof browser !== "undefined" ? browser : chrome;
 
 const input = document.getElementById("apiBaseUrl");
+const tokenInput = document.getElementById("apiToken");
 const saveButton = document.getElementById("save");
 const status = document.getElementById("status");
 
@@ -15,8 +16,12 @@ const showStatus = (message) => {
 };
 
 const restore = async () => {
-  const { apiBaseUrl = DEFAULT_API_BASE_URL } = await extAPI.storage.sync.get("apiBaseUrl");
+  const { apiBaseUrl = DEFAULT_API_BASE_URL, apiToken = "" } = await extAPI.storage.sync.get([
+    "apiBaseUrl",
+    "apiToken"
+  ]);
   input.value = apiBaseUrl;
+  tokenInput.value = apiToken;
 };
 
 const save = async () => {
@@ -26,7 +31,8 @@ const save = async () => {
     return;
   }
   await extAPI.storage.sync.set({
-    apiBaseUrl: value
+    apiBaseUrl: value,
+    apiToken: tokenInput.value.trim()
   });
   showStatus("Saved.");
 };

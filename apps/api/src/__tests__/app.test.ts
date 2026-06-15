@@ -2,35 +2,10 @@ import request from "supertest";
 import { describe, expect, it } from "vitest";
 import { createApp } from "../app";
 import { AirlockConfig } from "../config";
+import { makeTestConfig } from "./_config";
 import { createFakeSessionRuntime } from "./_fakes";
 
-const testConfig: AirlockConfig = {
-  server: {
-    port: 8787,
-    publicBaseUrl: "http://localhost:8787",
-    sessionHost: "localhost"
-  },
-  sessionDefaults: {
-    ttlSeconds: 1800,
-    browser: "chromium"
-  },
-  containerLaunch: {
-    dockerSocketPath: "/var/run/docker.sock",
-    shmSizeBytes: 1073741824,
-    vncPassword: "change-me",
-    browserImages: {
-      chromium: "kasmweb/chromium:1.18.0",
-      chrome: "kasmweb/chrome:1.18.0",
-      firefox: "kasmweb/firefox:1.18.0",
-      edge: "kasmweb/edge:1.18.0",
-      brave: "kasmweb/brave:1.18.0",
-      vivaldi: "kasmweb/vivaldi:1.18.0",
-      tor: "kasmweb/tor-browser:1.18.0"
-    }
-  },
-  auth: {},
-  internal: {}
-};
+const testConfig: AirlockConfig = makeTestConfig();
 
 describe("Airlock API", () => {
   it("creates a session and returns the public launch URL", async () => {
@@ -92,6 +67,57 @@ describe("Airlock API", () => {
     const response = await request(app).get("/healthz");
     expect(response.status).toBe(200);
     expect(response.body.ok).toBe(true);
+  });
+
+  it("returns 200 from /readyz when the engine is reachable", async () => {
+    const app = createApp({
+      config: testConfig,
+      sessionRuntime: createFakeSessionRuntime({ pingResult: true })
+    });
+
+    const response = await request(app).get("/readyz");
+    expect(response.status).toBe(200);
+    expect(response.body.ok).toBe(true);
+  });
+
+  it("returns 503 from /readyz when the engine is unreachable", async () => {
+    const app = createApp({
+      config: testConfig,
+      sessionRuntime: createFakeSessionRuntime({ pingResult: false })
+    });
+
+    const response = await request(app).get("/readyz");
+    expect(response.status).toBe(503);
+    expect(response.body.ok).toBe(false);
+  });
+
+  it("rejects session creation once the concurrent cap is reached", async () => {
+    const cappedConfig: AirlockConfig = {
+      ...testConfig,
+      limits: { ...testConfig.limits, maxSessions: 1 }
+    };
+    // The fake reports one active session, so a second create is over the cap.
+    const app = createApp({
+      config: cappedConfig,
+      sessionRuntime: createFakeSessionRuntime()
+    });
+
+    const response = await request(app)
+      .post("/api/sessions")
+      .send({ targetUrl: "https://example.com" });
+    expect(response.status).toBe(429);
+  });
+
+  it("serves Prometheus metrics", async () => {
+    const app = createApp({
+      config: testConfig,
+      sessionRuntime: createFakeSessionRuntime()
+    });
+
+    const response = await request(app).get("/metrics");
+    expect(response.status).toBe(200);
+    expect(response.text).toContain("airlock_sessions_active 1");
+    expect(response.text).toContain("airlock_sessions_created_total");
   });
 
   describe("with an API token configured", () => {

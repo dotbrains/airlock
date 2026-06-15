@@ -33,6 +33,13 @@ export const SessionViewer = ({ session, onClose }: SessionViewerProps): JSX.Ele
       <p className="viewer__hint muted">
         The browser streams over the container&apos;s self-signed TLS certificate. If the frame
         stays blank, open it in a new tab once to accept the certificate, then return here.
+        {session.vncPassword ? (
+          <>
+            {" "}
+            If prompted for a password, use <code>{session.vncPassword}</code> — it is unique to
+            this session.
+          </>
+        ) : null}
       </p>
     </div>
   );

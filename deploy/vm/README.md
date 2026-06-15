@@ -55,3 +55,7 @@ and set `AIRLOCK_PUBLIC_BASE_URL` / `AIRLOCK_SESSION_HOST` to the public host.
 - No volume: session state lives in Docker container labels.
 - The units mount `/var/run/docker.sock`, granting the API control of the host
   engine. Keep the API behind a token and a TLS-terminating proxy.
+- The image runs as non-root (UID `10001`). If `GET /readyz` reports the engine
+  unreachable, the user cannot read the socket — add
+  `--group-add "$(stat -c '%g' /var/run/docker.sock)"` to the `docker run` line
+  in `airlock-api.service` so it shares the socket's group.

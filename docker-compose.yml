@@ -28,6 +28,12 @@ services:
       AIRLOCK_INTERNAL_TOKEN: local-dev-token
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+    # The image runs as a non-root user (UID 10001), which cannot read the
+    # host Docker socket unless it shares the socket's group. Set DOCKER_GID to
+    # the socket's group id — `stat -c '%g' /var/run/docker.sock` on Linux, or
+    # 0 on Docker Desktop where the socket is root-owned.
+    group_add:
+      - "${DOCKER_GID:-0}"
     restart: unless-stopped
 
   worker:

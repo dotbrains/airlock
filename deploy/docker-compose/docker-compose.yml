@@ -35,6 +35,11 @@ services:
     volumes:
       # The API drives the host engine to launch browser containers.
       - /var/run/docker.sock:/var/run/docker.sock
+    # The image runs as non-root (UID 10001); to read the host Docker socket it
+    # must share the socket's group. Set DOCKER_GID to the socket's gid
+    # (`stat -c '%g' /var/run/docker.sock` on Linux, 0 on Docker Desktop).
+    group_add:
+      - "${DOCKER_GID:-0}"
     restart: unless-stopped
     # /healthz is auth-exempt, so the probe works without AIRLOCK_API_TOKEN.
     healthcheck:

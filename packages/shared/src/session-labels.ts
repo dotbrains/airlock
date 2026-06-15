@@ -5,6 +5,7 @@ export const SESSION_LABEL_KEYS = {
   sessionId: "airlock.session_id",
   browser: "airlock.browser",
   targetUrl: "airlock.target_url",
+  vncPassword: "airlock.vnc_password",
   createdAt: "airlock.created_at",
   expiresAt: "airlock.expires_at"
 } as const;
@@ -13,6 +14,7 @@ export interface SessionLabelInput {
   sessionId: string;
   browser: BrowserKind;
   targetUrl: string;
+  vncPassword: string;
   createdAt: Date;
   expiresAt: Date;
 }
@@ -21,6 +23,7 @@ export interface DecodedSessionLabels {
   sessionId: string;
   browser: BrowserKind;
   targetUrl: string;
+  vncPassword: string;
   createdAt: string;
   expiresAt: string;
 }
@@ -30,6 +33,7 @@ export const encodeSessionLabels = (input: SessionLabelInput): Record<string, st
   [SESSION_LABEL_KEYS.sessionId]: input.sessionId,
   [SESSION_LABEL_KEYS.browser]: input.browser,
   [SESSION_LABEL_KEYS.targetUrl]: input.targetUrl,
+  [SESSION_LABEL_KEYS.vncPassword]: input.vncPassword,
   [SESSION_LABEL_KEYS.createdAt]: input.createdAt.toISOString(),
   [SESSION_LABEL_KEYS.expiresAt]: input.expiresAt.toISOString()
 });
@@ -63,6 +67,8 @@ export const decodeSessionLabels = (
     sessionId,
     browser: toBrowserKind(labels?.[SESSION_LABEL_KEYS.browser], fallbackBrowser),
     targetUrl,
+    // Tolerate older containers created before per-session passwords existed.
+    vncPassword: labels?.[SESSION_LABEL_KEYS.vncPassword] ?? "",
     createdAt,
     expiresAt
   };

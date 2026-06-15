@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import Docker from "dockerode";
@@ -23,6 +23,26 @@ const portKey = (containerPort: number): string => `${containerPort}/tcp`;
 
 const toEnvList = (env: Record<string, string>): string[] =>
   Object.entries(env).map(([key, value]) => `${key}=${value}`);
+
+// Route all browser egress through an operator-controlled proxy when set. Both
+// upper- and lower-case forms are emitted because tooling disagrees on which it
+// honors.
+const proxyEnv = (proxy: string | undefined): Record<string, string> => {
+  if (!proxy) {
+    return {};
+  }
+  return {
+    HTTP_PROXY: proxy,
+    HTTPS_PROXY: proxy,
+    http_proxy: proxy,
+    https_proxy: proxy
+  };
+};
+
+const isNetworkConflict = (error: unknown): boolean => {
+  const statusCode = (error as { statusCode?: number } | null)?.statusCode;
+  return statusCode === 409;
+};
 
 // Resolve how dockerode connects: a remote engine via AIRLOCK_DOCKER_HOST
 // (tcp://host:port, with optional TLS material from a cert directory) takes
@@ -73,18 +93,30 @@ export class DockerSessionRuntime implements SessionRuntime {
   }
 
   async createSession(input: CreateSessionInput): Promise<AirlockSession> {
+    const launch = this.config.containerLaunch;
     const sessionId = randomUUID();
     const browser = input.browser;
     const profile = browserProfile(browser);
-    const image = this.config.containerLaunch.browserImages[browser];
+    const image = launch.browserImages[browser];
     const createdAt = new Date();
     const expiresAt = computeExpiresAt(createdAt, input.ttlSeconds);
     const containerName = `airlock-${sessionId}`;
     const containerPortKey = portKey(profile.containerPort);
-    const launchEnv = profile.buildLaunchEnv({
-      targetUrl: input.targetUrl,
-      vncPassword: this.config.containerLaunch.vncPassword
-    });
+    // A distinct random secret per session so one stream's credentials never
+    // grant access to another.
+    const vncPassword = randomBytes(18).toString("base64url");
+
+    if (launch.networkIsolation) {
+      await this.ensureNetwork(launch.networkName);
+    }
+
+    const launchEnv = {
+      ...profile.buildLaunchEnv({
+        targetUrl: input.targetUrl,
+        vncPassword
+      }),
+      ...proxyEnv(launch.egressProxy)
+    };
 
     const container = await this.docker.createContainer({
       name: containerName,
@@ -97,6 +129,7 @@ export class DockerSessionRuntime implements SessionRuntime {
         sessionId,
         browser,
         targetUrl: input.targetUrl,
+        vncPassword,
         createdAt,
         expiresAt
       }),
@@ -109,7 +142,13 @@ export class DockerSessionRuntime implements SessionRuntime {
             }
           ]
         },
-        ShmSize: this.config.containerLaunch.shmSizeBytes
+        ShmSize: launch.shmSizeBytes,
+        Memory: launch.memoryBytes || undefined,
+        NanoCpus: launch.nanoCpus || undefined,
+        PidsLimit: launch.pidsLimit || undefined,
+        // Browser containers never need to escalate privileges.
+        SecurityOpt: ["no-new-privileges"],
+        NetworkMode: launch.networkIsolation ? launch.networkName : undefined
       }
     });
 
@@ -128,9 +167,19 @@ export class DockerSessionRuntime implements SessionRuntime {
       browser,
       targetUrl: input.targetUrl,
       browserUrl: profile.streamUrl(this.config.server.sessionHost, hostPortNumber),
+      vncPassword,
       createdAt: createdAt.toISOString(),
       expiresAt: expiresAt.toISOString()
     };
+  }
+
+  async ping(): Promise<boolean> {
+    try {
+      await this.docker.ping();
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   async getSession(sessionId: string): Promise<AirlockSession | null> {
@@ -223,9 +272,30 @@ export class DockerSessionRuntime implements SessionRuntime {
       browser: decoded.browser,
       targetUrl: decoded.targetUrl,
       browserUrl: profile.streamUrl(this.config.server.sessionHost, hostPort),
+      vncPassword: decoded.vncPassword,
       createdAt: decoded.createdAt,
       expiresAt: decoded.expiresAt
     };
+  }
+
+  // Create the dedicated bridge network on first use. Inter-container
+  // communication is disabled so sessions cannot reach each other; an already
+  // existing network (409 Conflict) is fine.
+  private async ensureNetwork(name: string): Promise<void> {
+    try {
+      await this.docker.createNetwork({
+        Name: name,
+        Driver: "bridge",
+        CheckDuplicate: true,
+        Options: { "com.docker.network.bridge.enable_icc": "false" },
+        Labels: { "airlock.managed": "true" }
+      });
+    } catch (error) {
+      if (isNetworkConflict(error)) {
+        return;
+      }
+      throw error;
+    }
   }
 
   private async safeRemoveContainer(containerId: string): Promise<void> {

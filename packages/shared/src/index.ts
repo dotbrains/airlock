@@ -52,6 +52,10 @@ export interface AirlockSession {
   browser: import("./browser-catalog").BrowserKind;
   targetUrl: string;
   browserUrl: string;
+  // Per-session VNC password the viewer logs in with. Each session gets a
+  // distinct random secret so knowing one stream's credentials never grants
+  // access to another.
+  vncPassword: string;
   createdAt: string;
   expiresAt: string;
 }
@@ -62,4 +66,6 @@ export interface SessionRuntime {
   listSessions(): Promise<AirlockSession[]>;
   stopSession(sessionId: string): Promise<boolean>;
   pruneExpiredSessions(now?: Date): Promise<number>;
+  // Liveness of the underlying engine, for the readiness probe.
+  ping(): Promise<boolean>;
 }

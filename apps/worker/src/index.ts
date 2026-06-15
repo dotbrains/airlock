@@ -36,6 +36,14 @@ const pruneOnce = async (): Promise<void> => {
 };
 
 void pruneOnce();
-setInterval(() => {
+const timer = setInterval(() => {
   void pruneOnce();
 }, cleanupIntervalMs);
+
+const shutdown = (signal: string): void => {
+  process.stdout.write(`Airlock worker shutting down (${signal}).\n`);
+  clearInterval(timer);
+  process.exit(0);
+};
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));

@@ -127,7 +127,9 @@ The management API (`/api/meta`, `/api/sessions*`) is gated by a bearer token
 (`AIRLOCK_API_TOKEN`) via the `createBearerAuth` middleware in `apps/api`. The
 token is compared in constant time. Three paths are auth-exempt by design:
 
-- `/healthz` / `/health` — probes must work without a token.
+- `/healthz` / `/health` — liveness probes must work without a token.
+- `/readyz` — readiness probe (pings the Docker engine) is likewise
+  auth-exempt; `/metrics` is **not** — it requires the bearer token.
 - `/s/:sessionId` — the session id is an unguessable capability, and the link
   is followed by plain navigation that cannot carry an `Authorization` header.
 
