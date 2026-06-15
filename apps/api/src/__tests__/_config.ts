@@ -8,6 +8,7 @@ export const makeTestConfig = (overrides: Partial<AirlockConfig> = {}): AirlockC
     bindHost: "0.0.0.0",
     publicBaseUrl: "http://localhost:8787",
     sessionHost: "localhost",
+    trustProxyHops: 1,
     ...overrides.server
   },
   sessionDefaults: {

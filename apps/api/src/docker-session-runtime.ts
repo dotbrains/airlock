@@ -16,6 +16,7 @@ import {
 } from "@airlock/shared";
 import { AirlockConfig } from "./config";
 import { isContainerNotFound } from "./docker-errors";
+import { logger } from "./logger";
 
 type DockerContainerSummary = Awaited<ReturnType<Docker["listContainers"]>>[number];
 
@@ -279,8 +280,10 @@ export class DockerSessionRuntime implements SessionRuntime {
   }
 
   // Create the dedicated bridge network on first use. Inter-container
-  // communication is disabled so sessions cannot reach each other; an already
-  // existing network (409 Conflict) is fine.
+  // communication is disabled so sessions cannot reach each other. If the
+  // network already exists (409 Conflict) we verify it is actually
+  // ICC-disabled, warning loudly if an operator pre-created it with weaker
+  // isolation rather than silently trusting the name.
   private async ensureNetwork(name: string): Promise<void> {
     try {
       await this.docker.createNetwork({
@@ -291,10 +294,27 @@ export class DockerSessionRuntime implements SessionRuntime {
         Labels: { "airlock.managed": "true" }
       });
     } catch (error) {
-      if (isNetworkConflict(error)) {
-        return;
+      if (!isNetworkConflict(error)) {
+        throw error;
       }
-      throw error;
+      await this.warnIfNetworkNotIsolated(name);
+    }
+  }
+
+  private async warnIfNetworkNotIsolated(name: string): Promise<void> {
+    try {
+      const info = (await this.docker.getNetwork(name).inspect()) as {
+        Options?: Record<string, string>;
+      };
+      if (info.Options?.["com.docker.network.bridge.enable_icc"] !== "false") {
+        logger.warn("network.icc_enabled", {
+          network: name,
+          message:
+            "Existing isolation network does not disable inter-container communication; sessions may reach each other. Recreate it with enable_icc=false."
+        });
+      }
+    } catch {
+      // Inspection is best-effort; never block session creation on it.
     }
   }
 

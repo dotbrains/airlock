@@ -24,7 +24,16 @@ const toBoolean = (value: string | undefined, fallback: boolean): boolean => {
   if (value === undefined) {
     return fallback;
   }
-  return ["1", "true", "yes", "on"].includes(value.toLowerCase());
+  const normalized = value.toLowerCase();
+  if (["1", "true", "yes", "on"].includes(normalized)) {
+    return true;
+  }
+  if (["0", "false", "no", "off"].includes(normalized)) {
+    return false;
+  }
+  // An unrecognized value (e.g. a typo) keeps the secure default rather than
+  // silently flipping the flag off.
+  return fallback;
 };
 
 const browserImageEnvKey = (kind: BrowserKind): string => `AIRLOCK_IMAGE_${kind.toUpperCase()}`;
@@ -34,6 +43,7 @@ export interface ServerConfig {
   bindHost: string;
   publicBaseUrl: string;
   sessionHost: string;
+  trustProxyHops: number;
   webDir?: string;
 }
 
@@ -110,6 +120,7 @@ export const loadConfig = (env: NodeJS.ProcessEnv = process.env): AirlockConfig 
       bindHost: env.AIRLOCK_BIND_HOST ?? "0.0.0.0",
       publicBaseUrl,
       sessionHost: env.AIRLOCK_SESSION_HOST ?? "localhost",
+      trustProxyHops: Math.max(0, toInteger(env.AIRLOCK_TRUST_PROXY_HOPS, 1)),
       webDir: env.AIRLOCK_WEB_DIR
     },
     sessionDefaults: {

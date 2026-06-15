@@ -58,10 +58,11 @@ confirm `AIRLOCK_DOCKER_HOST` is reachable and, for `https://`, that
 
 **`/readyz` is 503 with the socket mounted (permission denied).** The image
 runs as non-root (UID `10001`), which cannot read a `root:docker` socket unless
-it shares the socket's group. In the Compose adapters set `DOCKER_GID` to the
-socket's group id (`stat -c '%g' /var/run/docker.sock` on Linux, `0` on Docker
-Desktop) so `group_add` grants access; for `docker run`, pass
-`--group-add "$(stat -c '%g' /var/run/docker.sock)"`.
+it shares the socket's group. Read the socket's group id with
+`stat -c '%g' "$AIRLOCK_DOCKER_SOCKET_PATH"` (defaults to `/var/run/docker.sock`;
+it is `0` on Docker Desktop). In the Compose adapters set `DOCKER_GID` to that
+value so `group_add` grants access; for `docker run`, pass the numeric id as
+`--group-add <gid>`.
 
 **Image pull failures on first session.** The configured Kasm tag does not
 exist or is unreachable. Verify `AIRLOCK_IMAGE_<BROWSER>` (defaults pin

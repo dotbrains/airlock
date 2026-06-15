@@ -24,10 +24,9 @@ const openErrorTab = async (message) => {
 };
 
 const createSession = async (targetUrl) => {
-  const { apiBaseUrl = DEFAULT_API_BASE_URL, apiToken = "" } = await extAPI.storage.sync.get([
-    "apiBaseUrl",
-    "apiToken"
-  ]);
+  const { apiBaseUrl = DEFAULT_API_BASE_URL } = await extAPI.storage.sync.get("apiBaseUrl");
+  // Token lives in storage.local (never synced to vendor servers).
+  const { apiToken = "" } = await extAPI.storage.local.get("apiToken");
   const baseUrl = trimTrailingSlash(apiBaseUrl);
   const headers = {
     "content-type": "application/json"

@@ -29,38 +29,38 @@ flowchart TB
 
 ### API (`apps/api`)
 
-| Variable                       | Default                      | Description                                                                                              |
-| ------------------------------ | ---------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `AIRLOCK_PORT`                 | `8787`                       | API server port                                                                                          |
-| `AIRLOCK_PUBLIC_BASE_URL`      | `http://localhost:8787`      | Public base URL for session links                                                                        |
-| `AIRLOCK_SESSION_HOST`         | `localhost`                  | Host used in redirect URLs to browser containers                                                         |
-| `AIRLOCK_DOCKER_SOCKET_PATH`   | `/var/run/docker.sock`       | Path to the local Docker socket (used when `AIRLOCK_DOCKER_HOST` is unset)                               |
-| `AIRLOCK_DOCKER_HOST`          | _(none)_                     | Remote Docker engine, e.g. `tcp://host:2376`. Overrides the socket — used by managed-PaaS deploys        |
-| `AIRLOCK_DOCKER_CERT_PATH`     | _(none)_                     | Directory with `ca.pem`/`cert.pem`/`key.pem` for a TLS-protected `AIRLOCK_DOCKER_HOST`                   |
-| `AIRLOCK_DEFAULT_TTL_SECONDS`  | `1800`                       | Default session lifetime when the request omits `ttlSeconds` (clamped 60–86400)                          |
-| `AIRLOCK_DEFAULT_BROWSER`      | `chromium`                   | Default browser kind (`chromium`, `chrome`, `firefox`, `edge`, `brave`, `vivaldi`, `tor`)                |
-| `AIRLOCK_VNC_PASSWORD`         | `change-me`                  | VNC password for browser containers                                                                      |
-| `AIRLOCK_SHM_SIZE_BYTES`       | `1073741824`                 | Shared memory size for containers (clamped 256MB–4GB)                                                    |
-| `AIRLOCK_BIND_HOST`            | `0.0.0.0`                    | Network interface the API binds; set `127.0.0.1` for loopback-only                                       |
-| `AIRLOCK_SESSION_MEMORY_BYTES` | `2147483648`                 | Per-session container memory cap (2GiB; `0` = unlimited)                                                 |
-| `AIRLOCK_SESSION_CPUS`         | `2`                          | Per-session CPU cap, converted to Docker NanoCpus (`0` = unlimited)                                      |
-| `AIRLOCK_SESSION_PIDS_LIMIT`   | `512`                        | Per-session PID cap (`0` = unlimited)                                                                    |
-| `AIRLOCK_NETWORK_ISOLATION`    | `true`                       | Attach sessions to a dedicated, inter-container-isolated bridge network instead of the default bridge    |
-| `AIRLOCK_NETWORK_NAME`         | `airlock`                    | Name of that bridge network (created on demand, ICC disabled)                                            |
-| `AIRLOCK_EGRESS_PROXY`         | _(none)_                     | When set, injected into browser containers as `HTTP(S)_PROXY` so all egress routes through it            |
-| `AIRLOCK_MAX_SESSIONS`         | `25`                         | Max concurrent active sessions; creation past this returns `429` (`0` = unlimited)                       |
-| `AIRLOCK_RATE_LIMIT_WINDOW_MS` | `60000`                      | Fixed-window length for the per-IP rate limit on `POST /api/sessions`                                    |
-| `AIRLOCK_RATE_LIMIT_MAX`       | `30`                         | Max `POST /api/sessions` per IP per window; over-limit returns `429` with `Retry-After` (`0` = disabled) |
-| `AIRLOCK_API_TOKEN`            | _(none)_                     | Bearer token gating the dashboard + management API. When unset, the API is unauthenticated               |
-| `AIRLOCK_WEB_DIR`              | _(auto)_                     | Absolute path to a built dashboard to serve from the API. The image sets `dist/public` automatically     |
-| `AIRLOCK_INTERNAL_TOKEN`       | _(none)_                     | Token to protect the prune endpoint. When set, requests must send `x-airlock-internal-token: <token>`    |
-| `AIRLOCK_IMAGE_CHROMIUM`       | `kasmweb/chromium:1.18.0`    | Docker image for Chromium                                                                                |
-| `AIRLOCK_IMAGE_CHROME`         | `kasmweb/chrome:1.18.0`      | Docker image for Chrome                                                                                  |
-| `AIRLOCK_IMAGE_FIREFOX`        | `kasmweb/firefox:1.18.0`     | Docker image for Firefox                                                                                 |
-| `AIRLOCK_IMAGE_EDGE`           | `kasmweb/edge:1.18.0`        | Docker image for Edge                                                                                    |
-| `AIRLOCK_IMAGE_BRAVE`          | `kasmweb/brave:1.18.0`       | Docker image for Brave                                                                                   |
-| `AIRLOCK_IMAGE_VIVALDI`        | `kasmweb/vivaldi:1.18.0`     | Docker image for Vivaldi                                                                                 |
-| `AIRLOCK_IMAGE_TOR`            | `kasmweb/tor-browser:1.18.0` | Docker image for Tor Browser                                                                             |
+| Variable                       | Default                      | Description                                                                                                                            |
+| ------------------------------ | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `AIRLOCK_PORT`                 | `8787`                       | API server port                                                                                                                        |
+| `AIRLOCK_PUBLIC_BASE_URL`      | `http://localhost:8787`      | Public base URL for session links                                                                                                      |
+| `AIRLOCK_SESSION_HOST`         | `localhost`                  | Host used in redirect URLs to browser containers                                                                                       |
+| `AIRLOCK_DOCKER_SOCKET_PATH`   | `/var/run/docker.sock`       | Path to the local Docker socket (used when `AIRLOCK_DOCKER_HOST` is unset)                                                             |
+| `AIRLOCK_DOCKER_HOST`          | _(none)_                     | Remote Docker engine, e.g. `tcp://host:2376`. Overrides the socket — used by managed-PaaS deploys                                      |
+| `AIRLOCK_DOCKER_CERT_PATH`     | _(none)_                     | Directory with `ca.pem`/`cert.pem`/`key.pem` for a TLS-protected `AIRLOCK_DOCKER_HOST`                                                 |
+| `AIRLOCK_DEFAULT_TTL_SECONDS`  | `1800`                       | Default session lifetime when the request omits `ttlSeconds` (clamped 60–86400)                                                        |
+| `AIRLOCK_DEFAULT_BROWSER`      | `chromium`                   | Default browser kind (`chromium`, `chrome`, `firefox`, `edge`, `brave`, `vivaldi`, `tor`)                                              |
+| `AIRLOCK_VNC_PASSWORD`         | `change-me`                  | VNC password for browser containers                                                                                                    |
+| `AIRLOCK_SHM_SIZE_BYTES`       | `1073741824`                 | Shared memory size for containers (clamped 256MB–4GB)                                                                                  |
+| `AIRLOCK_BIND_HOST`            | `0.0.0.0`                    | Network interface the API binds; set `127.0.0.1` for loopback-only                                                                     |
+| `AIRLOCK_SESSION_MEMORY_BYTES` | `2147483648`                 | Per-session container memory cap (2GiB; `0` = unlimited)                                                                               |
+| `AIRLOCK_SESSION_CPUS`         | `2`                          | Per-session CPU cap, converted to Docker NanoCpus (`0` = unlimited)                                                                    |
+| `AIRLOCK_SESSION_PIDS_LIMIT`   | `512`                        | Per-session PID cap (`0` = unlimited)                                                                                                  |
+| `AIRLOCK_NETWORK_ISOLATION`    | `true`                       | Attach sessions to a dedicated, inter-container-isolated bridge network instead of the default bridge                                  |
+| `AIRLOCK_NETWORK_NAME`         | `airlock`                    | Name of that bridge network (created on demand, ICC disabled)                                                                          |
+| `AIRLOCK_EGRESS_PROXY`         | _(none)_                     | When set, injected into browser containers as `HTTP(S)_PROXY` so all egress routes through it                                          |
+| `AIRLOCK_MAX_SESSIONS`         | `25`                         | Max concurrent active sessions; creation past this returns `429` (`0` = unlimited)                                                     |
+| `AIRLOCK_RATE_LIMIT_WINDOW_MS` | `60000`                      | Fixed-window length for the per-IP rate limit on `POST /api/sessions`                                                                  |
+| `AIRLOCK_RATE_LIMIT_MAX`       | `30`                         | Max `POST /api/sessions` per IP per window; over-limit returns `429` with `Retry-After` (`0` = disabled)                               |
+| `AIRLOCK_API_TOKEN`            | _(none)_                     | Bearer token gating the dashboard + management API (`/api/meta`, `/api/sessions*`, `/metrics`). When unset, the API is unauthenticated |
+| `AIRLOCK_WEB_DIR`              | _(auto)_                     | Absolute path to a built dashboard to serve from the API. The image sets `dist/public` automatically                                   |
+| `AIRLOCK_INTERNAL_TOKEN`       | _(none)_                     | Token to protect the prune endpoint. When set, requests must send `x-airlock-internal-token: <token>`                                  |
+| `AIRLOCK_IMAGE_CHROMIUM`       | `kasmweb/chromium:1.18.0`    | Docker image for Chromium                                                                                                              |
+| `AIRLOCK_IMAGE_CHROME`         | `kasmweb/chrome:1.18.0`      | Docker image for Chrome                                                                                                                |
+| `AIRLOCK_IMAGE_FIREFOX`        | `kasmweb/firefox:1.18.0`     | Docker image for Firefox                                                                                                               |
+| `AIRLOCK_IMAGE_EDGE`           | `kasmweb/edge:1.18.0`        | Docker image for Edge                                                                                                                  |
+| `AIRLOCK_IMAGE_BRAVE`          | `kasmweb/brave:1.18.0`       | Docker image for Brave                                                                                                                 |
+| `AIRLOCK_IMAGE_VIVALDI`        | `kasmweb/vivaldi:1.18.0`     | Docker image for Vivaldi                                                                                                               |
+| `AIRLOCK_IMAGE_TOR`            | `kasmweb/tor-browser:1.18.0` | Docker image for Tor Browser                                                                                                           |
 
 ### Worker (`apps/worker`)
 

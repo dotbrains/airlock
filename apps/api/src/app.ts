@@ -37,9 +37,15 @@ export const createApp = ({ config, sessionRuntime, metrics }: CreateAppOptions)
   const app = express();
   const meter = metrics ?? new Metrics();
 
-  // Behind a reverse proxy the real client IP arrives in X-Forwarded-For;
-  // trust it so the rate limiter keys on the client, not the proxy.
-  app.set("trust proxy", true);
+  // Trust exactly one reverse-proxy hop for the client IP. `true` would honor
+  // any X-Forwarded-For, letting clients spoof IPs to evade the per-IP rate
+  // limit; override AIRLOCK_TRUST_PROXY_HOPS for a deeper proxy chain.
+  app.set("trust proxy", config.server.trustProxyHops);
+
+  // In-process reservation count for in-flight creates, so the concurrent-cap
+  // check is atomic within this process (single-node control plane) rather than
+  // a check-then-act race against listSessions().
+  let pendingCreates = 0;
 
   app.use(
     cors({
@@ -112,10 +118,11 @@ export const createApp = ({ config, sessionRuntime, metrics }: CreateAppOptions)
         return;
       }
 
-      // Enforce the concurrent-session cap before spending engine resources.
+      // Enforce the concurrent-session cap before spending engine resources,
+      // counting in-flight creates so concurrent requests can't all slip past.
       if (config.limits.maxSessions > 0) {
         const active = await sessionRuntime.listSessions();
-        if (active.length >= config.limits.maxSessions) {
+        if (active.length + pendingCreates >= config.limits.maxSessions) {
           response.status(429).json({
             error: `Session limit reached (${config.limits.maxSessions} active).`
           });
@@ -123,6 +130,7 @@ export const createApp = ({ config, sessionRuntime, metrics }: CreateAppOptions)
         }
       }
 
+      pendingCreates += 1;
       try {
         const session = await sessionRuntime.createSession({
           browser: parsed.data.browser ?? config.sessionDefaults.browser,
@@ -145,6 +153,8 @@ export const createApp = ({ config, sessionRuntime, metrics }: CreateAppOptions)
           message: error instanceof Error ? error.message : String(error)
         });
         throw error;
+      } finally {
+        pendingCreates -= 1;
       }
     })
   );

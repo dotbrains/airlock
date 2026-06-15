@@ -16,10 +16,10 @@ const showStatus = (message) => {
 };
 
 const restore = async () => {
-  const { apiBaseUrl = DEFAULT_API_BASE_URL, apiToken = "" } = await extAPI.storage.sync.get([
-    "apiBaseUrl",
-    "apiToken"
-  ]);
+  const { apiBaseUrl = DEFAULT_API_BASE_URL } = await extAPI.storage.sync.get("apiBaseUrl");
+  // The token is kept in storage.local, not sync: storage.sync is replicated to
+  // the browser vendor's servers, which a bearer secret should never touch.
+  const { apiToken = "" } = await extAPI.storage.local.get("apiToken");
   input.value = apiBaseUrl;
   tokenInput.value = apiToken;
 };
@@ -30,10 +30,8 @@ const save = async () => {
     showStatus("API URL cannot be empty.");
     return;
   }
-  await extAPI.storage.sync.set({
-    apiBaseUrl: value,
-    apiToken: tokenInput.value.trim()
-  });
+  await extAPI.storage.sync.set({ apiBaseUrl: value });
+  await extAPI.storage.local.set({ apiToken: tokenInput.value.trim() });
   showStatus("Saved.");
 };
 

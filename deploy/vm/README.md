@@ -56,6 +56,12 @@ and set `AIRLOCK_PUBLIC_BASE_URL` / `AIRLOCK_SESSION_HOST` to the public host.
 - The units mount `/var/run/docker.sock`, granting the API control of the host
   engine. Keep the API behind a token and a TLS-terminating proxy.
 - The image runs as non-root (UID `10001`). If `GET /readyz` reports the engine
-  unreachable, the user cannot read the socket — add
-  `--group-add "$(stat -c '%g' /var/run/docker.sock)"` to the `docker run` line
-  in `airlock-api.service` so it shares the socket's group.
+  unreachable, the user cannot read the socket. systemd runs `ExecStart` without
+  a shell, so command substitution won't expand there — first read the gid:
+
+  ```bash
+  stat -c '%g' /var/run/docker.sock
+  ```
+
+  then add the **literal numeric** id to the `docker run` line in
+  `airlock-api.service`, e.g. `--group-add 999`, so it shares the socket's group.

@@ -68,11 +68,14 @@ to the local host.
 
 ### Auth-exempt paths
 
-Three paths bypass the bearer guard by design:
+These paths bypass the bearer guard by design:
 
 - **`GET /healthz` and `GET /health`** — liveness probes must answer without a
   token so orchestrators and the image `HEALTHCHECK` can poll them. They return
   only `{"ok":true}` and leak no session data.
+- **`GET /readyz`** — the readiness probe reports only whether the Docker engine
+  is reachable (`{"ok":…,"engine":…}`); like the liveness probes it must answer
+  without a token and leaks no session data.
 - **`GET /s/:sessionId`** — the session id is an unguessable UUID capability.
   The short link is followed by plain browser navigation (a `302` redirect to
   the container stream) that cannot attach an `Authorization` header, so gating

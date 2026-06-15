@@ -54,8 +54,12 @@ const server = app.listen(config.server.port, config.server.bindHost, () => {
 const shutdown = (signal: string): void => {
   logger.info("api.shutdown", { signal });
   server.close(() => process.exit(0));
-  // Don't hang forever if connections refuse to drain.
-  setTimeout(() => process.exit(0), 5000).unref();
+  // Don't hang forever if connections refuse to drain; a forced exit is a
+  // failed graceful shutdown, so signal it with a non-zero code.
+  setTimeout(() => {
+    logger.warn("api.shutdown_forced", { signal });
+    process.exit(1);
+  }, 5000).unref();
 };
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 process.on("SIGINT", () => shutdown("SIGINT"));

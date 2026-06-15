@@ -9,7 +9,8 @@ const config: AirlockConfig = makeTestConfig({
     port: 8787,
     bindHost: "0.0.0.0",
     publicBaseUrl: "https://airlock.example.com",
-    sessionHost: "localhost"
+    sessionHost: "localhost",
+    trustProxyHops: 1
   }
 });
 
