@@ -1,0 +1,56 @@
+# Docker Compose adapter for the Airlock deployment contract.
+#
+# `docker compose -f deploy/docker-compose/docker-compose.yml up --build` builds
+# the shared root image once and runs both processes from it: the API +
+# dashboard on http://127.0.0.1:8787 and the cleanup worker. The API reaches
+# the host Docker engine through the mounted socket and spawns Kasm browser
+# containers as siblings. Run from the repo root.
+#
+# `cp deploy/docker-compose/.env.example deploy/docker-compose/.env` first and
+# set AIRLOCK_API_TOKEN. Airlock keeps no database — session state lives in
+# container labels — so there is no volume to mount.
+services:
+  api:
+    build:
+      # Build the shared root Dockerfile; context is the repo root so the image
+      # is identical to every other provider adapter.
+      context: ../..
+      dockerfile: Dockerfile
+    image: airlock:local
+    command: ["bun", "apps/api/dist/index.js"]
+    ports:
+      # Loopback-only by default; change to "8787:8787" to expose. When
+      # exposed, set AIRLOCK_API_TOKEN so the management API requires a token.
+      - "127.0.0.1:8787:8787"
+    env_file:
+      - .env
+    environment:
+      AIRLOCK_PORT: "8787"
+      AIRLOCK_PUBLIC_BASE_URL: ${AIRLOCK_PUBLIC_BASE_URL:-http://localhost:8787}
+      AIRLOCK_SESSION_HOST: ${AIRLOCK_SESSION_HOST:-localhost}
+      AIRLOCK_API_TOKEN: ${AIRLOCK_API_TOKEN:-}
+      AIRLOCK_INTERNAL_TOKEN: ${AIRLOCK_INTERNAL_TOKEN:-local-dev-token}
+      AIRLOCK_VNC_PASSWORD: ${AIRLOCK_VNC_PASSWORD:-change-me}
+      AIRLOCK_DEFAULT_TTL_SECONDS: ${AIRLOCK_DEFAULT_TTL_SECONDS:-1800}
+    volumes:
+      # The API drives the host engine to launch browser containers.
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+    # /healthz is auth-exempt, so the probe works without AIRLOCK_API_TOKEN.
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8787/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  worker:
+    image: airlock:local
+    command: ["bun", "apps/worker/dist/index.js"]
+    depends_on:
+      - api
+    environment:
+      AIRLOCK_API_BASE_URL: http://api:8787
+      AIRLOCK_INTERNAL_TOKEN: ${AIRLOCK_INTERNAL_TOKEN:-local-dev-token}
+      AIRLOCK_CLEANUP_INTERVAL_MS: ${AIRLOCK_CLEANUP_INTERVAL_MS:-30000}
+    restart: unless-stopped

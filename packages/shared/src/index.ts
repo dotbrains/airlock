@@ -59,6 +59,7 @@ export interface AirlockSession {
 export interface SessionRuntime {
   createSession(input: CreateSessionInput): Promise<AirlockSession>;
   getSession(sessionId: string): Promise<AirlockSession | null>;
+  listSessions(): Promise<AirlockSession[]>;
   stopSession(sessionId: string): Promise<boolean>;
   pruneExpiredSessions(now?: Date): Promise<number>;
 }

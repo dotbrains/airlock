@@ -1,5 +1,9 @@
-# lefthook configuration
+# lefthook configuration — Airlock's pre-commit gate.
 # Install with: bunx lefthook install
+#
+# These commands together mirror `make check` (the aggregate gate CI runs), but
+# run in parallel for a faster commit-time loop. Run `make check` for the exact
+# serial suite CI uses.
 
 pre-commit:
   parallel: true
@@ -12,3 +16,5 @@ pre-commit:
       run: bun run typecheck
     test:
       run: bun run test
+    build:
+      run: bun run build

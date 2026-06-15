@@ -1,0 +1,59 @@
+# Fly.io adapter for the Airlock deployment contract (see deploy/README.md).
+#
+# Two process groups share the one image: `api` serves the dashboard + API on
+# 8787, `worker` runs the prune loop. Airlock keeps no database (session state
+# lives in Docker labels), so there is no volume.
+#
+# Fly cannot give the API a local Docker socket, so it runs as the CONTROL
+# PLANE pointed at a REMOTE engine via AIRLOCK_DOCKER_HOST (set as a secret).
+# Without a reachable engine the API starts but cannot launch sessions.
+#
+# Operator workflow (run from the repo root):
+#   fly launch --no-deploy --copy-config -c deploy/fly/fly.toml
+#   fly secrets set \
+#       AIRLOCK_API_TOKEN=$(openssl rand -hex 32) \
+#       AIRLOCK_INTERNAL_TOKEN=$(openssl rand -hex 32) \
+#       AIRLOCK_DOCKER_HOST=tcp://your-engine:2376 \
+#       AIRLOCK_SESSION_HOST=your-engine-host
+#   fly deploy -c deploy/fly/fly.toml
+app = "airlock"
+primary_region = "iad"
+
+# Build context is the repo root, so the shared Dockerfile is two levels up.
+# Deploy with `-c deploy/fly/fly.toml` from the repo root.
+[build]
+  dockerfile = "../../Dockerfile"
+
+[env]
+  AIRLOCK_PORT = "8787"
+  AIRLOCK_API_BASE_URL = "http://localhost:8787"
+
+[processes]
+  api = "bun apps/api/dist/index.js"
+  worker = "bun apps/worker/dist/index.js"
+
+[http_service]
+  internal_port = 8787
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 1
+  # Only the API process serves HTTP; the worker is a background poller.
+  processes = ["api"]
+
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 64
+    hard_limit = 128
+
+  # /healthz is auth-exempt, so the platform probe works without a token.
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "15s"
+    method = "get"
+    path = "/healthz"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

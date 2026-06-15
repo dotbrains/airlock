@@ -18,6 +18,7 @@ export interface ServerConfig {
   port: number;
   publicBaseUrl: string;
   sessionHost: string;
+  webDir?: string;
 }
 
 export interface SessionDefaultsConfig {
@@ -27,9 +28,15 @@ export interface SessionDefaultsConfig {
 
 export interface ContainerLaunchConfig {
   dockerSocketPath: string;
+  dockerHost?: string;
+  dockerCertPath?: string;
   shmSizeBytes: number;
   browserImages: Record<BrowserKind, string>;
   vncPassword: string;
+}
+
+export interface AuthConfig {
+  token?: string;
 }
 
 export interface InternalConfig {
@@ -40,6 +47,7 @@ export interface AirlockConfig {
   server: ServerConfig;
   sessionDefaults: SessionDefaultsConfig;
   containerLaunch: ContainerLaunchConfig;
+  auth: AuthConfig;
   internal: InternalConfig;
 }
 
@@ -62,7 +70,8 @@ export const loadConfig = (env: NodeJS.ProcessEnv = process.env): AirlockConfig 
     server: {
       port,
       publicBaseUrl,
-      sessionHost: env.AIRLOCK_SESSION_HOST ?? "localhost"
+      sessionHost: env.AIRLOCK_SESSION_HOST ?? "localhost",
+      webDir: env.AIRLOCK_WEB_DIR
     },
     sessionDefaults: {
       ttlSeconds: clampTtl(toInteger(env.AIRLOCK_DEFAULT_TTL_SECONDS, TTL_DEFAULT_SECONDS)),
@@ -70,9 +79,14 @@ export const loadConfig = (env: NodeJS.ProcessEnv = process.env): AirlockConfig 
     },
     containerLaunch: {
       dockerSocketPath: env.AIRLOCK_DOCKER_SOCKET_PATH ?? "/var/run/docker.sock",
+      dockerHost: env.AIRLOCK_DOCKER_HOST,
+      dockerCertPath: env.AIRLOCK_DOCKER_CERT_PATH,
       shmSizeBytes: clamp(toInteger(env.AIRLOCK_SHM_SIZE_BYTES, 1073741824), 268435456, 4294967296),
       browserImages,
       vncPassword: env.AIRLOCK_VNC_PASSWORD ?? "change-me"
+    },
+    auth: {
+      token: env.AIRLOCK_API_TOKEN
     },
     internal: {
       token: env.AIRLOCK_INTERNAL_TOKEN

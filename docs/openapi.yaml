@@ -1,0 +1,385 @@
+openapi: 3.1.0
+info:
+  title: Airlock API
+  version: 0.1.0
+  description: >-
+    Local-first control plane that launches disposable, isolated browser
+    sessions in throwaway Docker containers and returns a short-lived
+    capability link to a streamed browser.
+servers:
+  - url: http://localhost:8787
+    description: Local development server
+tags:
+  - name: health
+    description: Liveness and readiness probes.
+  - name: meta
+    description: Dashboard metadata.
+  - name: sessions
+    description: Disposable browser session management.
+  - name: internal
+    description: Internal maintenance operations.
+  - name: public
+    description: Public capability links.
+security:
+  - bearerAuth: []
+paths:
+  /healthz:
+    get:
+      summary: Liveness/readiness probe (deploy-contract health check).
+      description: Auth-exempt probe used by deploy adapters.
+      operationId: getHealthz
+      tags:
+        - health
+      security: []
+      responses:
+        "200":
+          description: Service is healthy.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+  /health:
+    get:
+      summary: Liveness/readiness probe (alias of /healthz).
+      description: Auth-exempt alias kept for existing tooling.
+      operationId: getHealth
+      tags:
+        - health
+      security: []
+      responses:
+        "200":
+          description: Service is healthy.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+  /api/meta:
+    get:
+      summary: Browser catalog and TTL bounds for the dashboard.
+      operationId: getMeta
+      tags:
+        - meta
+      responses:
+        "200":
+          description: Dashboard launch-form metadata.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Meta"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/sessions:
+    post:
+      summary: Create a disposable browser session.
+      operationId: createSession
+      tags:
+        - sessions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSessionRequest"
+      responses:
+        "201":
+          description: Session created and container started.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/ServerError"
+    get:
+      summary: List active sessions (newest first).
+      operationId: listSessions
+      tags:
+        - sessions
+      responses:
+        "200":
+          description: The active sessions.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                  - sessions
+                properties:
+                  sessions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Session"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/sessions/{sessionId}:
+    parameters:
+      - $ref: "#/components/parameters/SessionId"
+    get:
+      summary: Get session details.
+      operationId: getSession
+      tags:
+        - sessions
+      responses:
+        "200":
+          description: The session.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "410":
+          $ref: "#/components/responses/Gone"
+    delete:
+      summary: Stop and remove a session.
+      operationId: deleteSession
+      tags:
+        - sessions
+      responses:
+        "204":
+          description: Session stopped and removed.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/internal/prune:
+    post:
+      summary: Prune all expired session containers.
+      description: >-
+        Removes every expired managed container. Protected by the
+        x-airlock-internal-token header only when AIRLOCK_INTERNAL_TOKEN is
+        configured; otherwise unauthenticated.
+      operationId: pruneSessions
+      tags:
+        - internal
+      security:
+        - internalToken: []
+        - {}
+      responses:
+        "200":
+          description: Number of sessions pruned.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PruneResult"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /s/{sessionId}:
+    parameters:
+      - $ref: "#/components/parameters/SessionId"
+    get:
+      summary: Public capability link — redirect to the browser stream.
+      description: >-
+        Auth-exempt: the session id is itself an unguessable capability and the
+        link is opened by plain browser navigation. Redirects to browserUrl.
+      operationId: openSession
+      tags:
+        - public
+      security: []
+      responses:
+        "302":
+          description: Redirect to the browser container stream URL.
+          headers:
+            Location:
+              description: The browserUrl of the running container.
+              schema:
+                type: string
+                format: uri
+                example: https://localhost:32792
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "410":
+          $ref: "#/components/responses/Gone"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: AIRLOCK_API_TOKEN bearer secret gating the management API.
+    internalToken:
+      type: apiKey
+      in: header
+      name: x-airlock-internal-token
+      description: >-
+        AIRLOCK_INTERNAL_TOKEN shared secret. Enforced only when configured.
+  parameters:
+    SessionId:
+      name: sessionId
+      in: path
+      required: true
+      description: The session UUID.
+      schema:
+        type: string
+        format: uuid
+  responses:
+    BadRequest:
+      description: Request body failed schema validation.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Unauthorized:
+      description: Missing or invalid token.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Session not found.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Gone:
+      description: Session has expired (the runtime stops the container first).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    ServerError:
+      description: Unexpected server error.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+  schemas:
+    Health:
+      type: object
+      additionalProperties: false
+      required:
+        - ok
+      properties:
+        ok:
+          type: boolean
+          example: true
+    Meta:
+      type: object
+      additionalProperties: false
+      required:
+        - browsers
+        - defaultBrowser
+        - defaultTtlSeconds
+        - ttlMinSeconds
+        - ttlMaxSeconds
+      properties:
+        browsers:
+          type: array
+          items:
+            type: string
+          example:
+            - chromium
+            - chrome
+            - firefox
+            - edge
+            - brave
+            - vivaldi
+            - tor
+        defaultBrowser:
+          type: string
+          example: chromium
+        defaultTtlSeconds:
+          type: integer
+          example: 1800
+        ttlMinSeconds:
+          type: integer
+          example: 60
+        ttlMaxSeconds:
+          type: integer
+          example: 86400
+    BrowserKind:
+      type: string
+      description: One of the supported browser kinds.
+      enum:
+        - chromium
+        - chrome
+        - firefox
+        - edge
+        - brave
+        - vivaldi
+        - tor
+    CreateSessionRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - targetUrl
+      properties:
+        targetUrl:
+          type: string
+          format: uri
+          description: Must start with http:// or https://.
+          example: https://example.com
+        browser:
+          allOf:
+            - $ref: "#/components/schemas/BrowserKind"
+          description: Defaults to chromium when omitted.
+        ttlSeconds:
+          type: integer
+          minimum: 60
+          maximum: 86400
+          description: Session lifetime in seconds. Defaults to 1800 when omitted.
+          example: 1800
+    Session:
+      type: object
+      additionalProperties: false
+      required:
+        - sessionId
+        - browser
+        - targetUrl
+        - browserUrl
+        - createdAt
+        - expiresAt
+        - sessionUrl
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+          description: UUID identifying the session.
+        browser:
+          $ref: "#/components/schemas/BrowserKind"
+        targetUrl:
+          type: string
+          format: uri
+          example: https://example.com
+        browserUrl:
+          type: string
+          format: uri
+          description: Direct stream URL of the running container (host + mapped port).
+          example: https://localhost:32792
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-04-20T05:30:00.000Z"
+        expiresAt:
+          type: string
+          format: date-time
+          example: "2026-04-20T06:00:00.000Z"
+        sessionUrl:
+          type: string
+          format: uri
+          description: Public capability link, <AIRLOCK_PUBLIC_BASE_URL>/s/<sessionId>.
+          example: http://localhost:8787/s/0c5f8b1a-2d3e-4f56-89ab-cdef01234567
+    PruneResult:
+      type: object
+      additionalProperties: false
+      required:
+        - pruned
+      properties:
+        pruned:
+          type: integer
+          description: Number of expired sessions removed.
+          example: 3
+    Error:
+      type: object
+      additionalProperties: false
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          example: Unauthorized.

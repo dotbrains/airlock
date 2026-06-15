@@ -1,0 +1,48 @@
+# Render Blueprint adapter for the Airlock deployment contract.
+#
+# Two services from the shared root Dockerfile: a web service (API + dashboard)
+# and a background worker (prune loop). No disk — Airlock keeps no database;
+# session state lives in Docker container labels.
+#
+# Render exposes no local Docker socket, so the API runs as the CONTROL PLANE
+# pointed at a REMOTE engine via AIRLOCK_DOCKER_HOST. See deploy/README.md.
+services:
+  - type: web
+    name: airlock-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    dockerCommand: bun apps/api/dist/index.js
+    plan: starter
+    healthCheckPath: /healthz
+    envVars:
+      - key: AIRLOCK_PORT
+        value: "8787"
+      # Required — generate once and store as a secret.
+      - key: AIRLOCK_API_TOKEN
+        sync: false
+      - key: AIRLOCK_INTERNAL_TOKEN
+        sync: false
+      # Remote Docker engine the API drives to spawn browser containers.
+      - key: AIRLOCK_DOCKER_HOST
+        sync: false
+      - key: AIRLOCK_SESSION_HOST
+        sync: false
+      - key: AIRLOCK_PUBLIC_BASE_URL
+        sync: false
+
+  - type: worker
+    name: airlock-worker
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    dockerCommand: bun apps/worker/dist/index.js
+    plan: starter
+    envVars:
+      # The worker dials the web service over Render's private network, where
+      # services are reachable at http://<service-name>:<listen-port>.
+      - key: AIRLOCK_API_BASE_URL
+        value: http://airlock-api:8787
+      # Must match the web service's value.
+      - key: AIRLOCK_INTERNAL_TOKEN
+        sync: false

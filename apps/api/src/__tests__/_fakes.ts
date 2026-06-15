@@ -44,6 +44,9 @@ export const createFakeSessionRuntime = (
     async getSession(_sessionId: string): Promise<AirlockSession | null> {
       return current;
     },
+    async listSessions(): Promise<AirlockSession[]> {
+      return current ? [current] : [];
+    },
     async stopSession(sessionId: string): Promise<boolean> {
       stopped.push(sessionId);
       const wasPresent = current !== null;

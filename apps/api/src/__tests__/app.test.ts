@@ -28,6 +28,7 @@ const testConfig: AirlockConfig = {
       tor: "kasmweb/tor-browser:1.18.0"
     }
   },
+  auth: {},
   internal: {}
 };
 
@@ -68,5 +69,74 @@ describe("Airlock API", () => {
     const response = await request(app).get("/s/session-1");
     expect(response.status).toBe(302);
     expect(response.headers.location).toBe("https://localhost:6901");
+  });
+
+  it("lists active sessions with their public launch URLs", async () => {
+    const app = createApp({
+      config: testConfig,
+      sessionRuntime: createFakeSessionRuntime()
+    });
+
+    const response = await request(app).get("/api/sessions");
+    expect(response.status).toBe(200);
+    expect(response.body.sessions).toHaveLength(1);
+    expect(response.body.sessions[0].sessionUrl).toBe("http://localhost:8787/s/session-1");
+  });
+
+  it("answers /healthz without auth", async () => {
+    const app = createApp({
+      config: { ...testConfig, auth: { token: "secret" } },
+      sessionRuntime: createFakeSessionRuntime()
+    });
+
+    const response = await request(app).get("/healthz");
+    expect(response.status).toBe(200);
+    expect(response.body.ok).toBe(true);
+  });
+
+  describe("with an API token configured", () => {
+    const securedConfig: AirlockConfig = { ...testConfig, auth: { token: "secret" } };
+
+    it("rejects management requests without a bearer token", async () => {
+      const app = createApp({
+        config: securedConfig,
+        sessionRuntime: createFakeSessionRuntime()
+      });
+
+      const response = await request(app).get("/api/sessions");
+      expect(response.status).toBe(401);
+    });
+
+    it("rejects a wrong bearer token", async () => {
+      const app = createApp({
+        config: securedConfig,
+        sessionRuntime: createFakeSessionRuntime()
+      });
+
+      const response = await request(app).get("/api/sessions").set("authorization", "Bearer wrong");
+      expect(response.status).toBe(401);
+    });
+
+    it("accepts the correct bearer token", async () => {
+      const app = createApp({
+        config: securedConfig,
+        sessionRuntime: createFakeSessionRuntime()
+      });
+
+      const response = await request(app)
+        .get("/api/sessions")
+        .set("authorization", "Bearer secret");
+      expect(response.status).toBe(200);
+    });
+
+    it("leaves the /s/:id capability link open", async () => {
+      const app = createApp({
+        config: securedConfig,
+        sessionRuntime: createFakeSessionRuntime()
+      });
+
+      const response = await request(app).get("/s/session-1");
+      expect(response.status).toBe(302);
+    });
   });
 });

@@ -1,0 +1,7 @@
+# actionlint configuration.
+# Declare the self-hosted Blacksmith runner labels so actionlint does not flag
+# them as unknown `runs-on` values. These are managed runners provided by
+# Blacksmith, not standard GitHub-hosted labels.
+self-hosted-runner:
+  labels:
+    - blacksmith-4vcpu-ubuntu-2404
