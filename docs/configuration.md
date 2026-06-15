@@ -72,7 +72,7 @@ flowchart TB
 
 ```bash
 bun install
-cp .env.example .env
+cp .env.sample .env
 bun run dev:api    # terminal 1 — API + session runtime
 bun run dev:worker # terminal 2 — cleanup worker
 bun run dev:web    # terminal 3 — dashboard (Vite, proxies /api → :8787)
@@ -88,13 +88,14 @@ and `/s` to the API. In production the API serves the built dashboard itself
 docker compose up
 ```
 
-This runs the API and worker from source in containers (`oven/bun:1`). The API controls local Docker through `/var/run/docker.sock`.
+This builds the shared root image and runs the API + bundled dashboard and the cleanup worker, serving everything on <http://localhost:8787>. The API controls local Docker through `/var/run/docker.sock`.
 
 ## Checks
 
 ```bash
+make check          # the full gate: format, lint, typecheck, test, build
 bun run typecheck   # tsc --noEmit across all workspaces
 bun run lint        # oxlint (correctness category)
-bun run test        # vitest in apps/api
+bun run test        # vitest in apps/api and apps/web
 bun run format:check # prettier
 ```

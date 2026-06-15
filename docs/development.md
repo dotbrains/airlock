@@ -9,7 +9,7 @@ and copy the example env:
 
 ```bash
 bun install
-cp .env.example .env
+cp .env.sample .env
 ```
 
 You also need a local Docker engine running — the API creates and removes

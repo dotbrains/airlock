@@ -17,7 +17,7 @@ everything you need to get started.
    ```
 4. **Copy** the example environment file:
    ```bash
-   cp .env.example .env
+   cp .env.sample .env
    ```
 5. **Install** the pre-commit hook:
    ```bash

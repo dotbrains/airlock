@@ -22,7 +22,7 @@ from the root:
 git clone https://github.com/dotbrains/airlock.git
 cd airlock
 bun install
-cp .env.example .env
+cp .env.sample .env
 ```
 
 `bun install` resolves the workspace graph for all five packages:

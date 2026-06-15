@@ -23,7 +23,7 @@ the repo root:
 git clone https://github.com/dotbrains/airlock.git
 cd airlock
 bun install
-cp .env.example .env
+cp .env.sample .env
 ```
 
 The `.env` file is optional for local dev — every variable has a default. See

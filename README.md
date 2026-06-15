@@ -32,7 +32,7 @@ flowchart LR
 
 ```bash
 bun install
-cp .env.example .env
+cp .env.sample .env
 bun run dev:api    # terminal 1 — API
 bun run dev:worker # terminal 2 — cleanup worker
 bun run dev:web    # terminal 3 — dashboard at http://localhost:5173
