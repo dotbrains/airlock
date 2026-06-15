@@ -2,17 +2,24 @@ import { useEffect, useState } from "react";
 import { SessionResponse } from "../lib/api";
 import { formatTimeRemaining } from "../lib/time";
 
+// Minutes added when the operator clicks "Extend".
+const EXTEND_SECONDS = 15 * 60;
+
 export interface SessionListProps {
   sessions: SessionResponse[];
   terminatingId: string | null;
+  extendingId: string | null;
   onOpen: (sessionId: string) => void;
+  onExtend: (sessionId: string, ttlSeconds: number) => void;
   onTerminate: (sessionId: string) => void;
 }
 
 export const SessionList = ({
   sessions,
   terminatingId,
+  extendingId,
   onOpen,
+  onExtend,
   onTerminate
 }: SessionListProps): JSX.Element => {
   const now = useTick(1000);
@@ -33,6 +40,15 @@ export const SessionList = ({
             <span className="session__ttl">{formatTimeRemaining(session.expiresAt, now)} left</span>
           </div>
           <div className="session__actions">
+            <CopyLinkButton url={session.sessionUrl} />
+            <button
+              type="button"
+              className="button button--small"
+              disabled={extendingId === session.sessionId}
+              onClick={() => onExtend(session.sessionId, EXTEND_SECONDS)}
+            >
+              {extendingId === session.sessionId ? "Extending…" : "+15m"}
+            </button>
             <button
               type="button"
               className="button button--small"
@@ -52,6 +68,26 @@ export const SessionList = ({
         </li>
       ))}
     </ul>
+  );
+};
+
+const CopyLinkButton = ({ url }: { url: string }): JSX.Element => {
+  const [copied, setCopied] = useState(false);
+
+  const copy = async (): Promise<void> => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Clipboard access can be denied; leave the label unchanged.
+    }
+  };
+
+  return (
+    <button type="button" className="button button--small" onClick={() => void copy()}>
+      {copied ? "Copied" : "Copy link"}
+    </button>
   );
 };
 

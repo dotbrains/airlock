@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { SessionResponse } from "../lib/api";
 
 export interface SessionViewerProps {
@@ -6,6 +7,11 @@ export interface SessionViewerProps {
 }
 
 export const SessionViewer = ({ session, onClose }: SessionViewerProps): JSX.Element => {
+  // Bumping the key remounts the iframe, forcing a fresh connection to the
+  // stream — the manual "reconnect" when a session drops or the cert is
+  // accepted in another tab.
+  const [reloadKey, setReloadKey] = useState(0);
+
   return (
     <div className="viewer">
       <div className="viewer__bar">
@@ -15,6 +21,13 @@ export const SessionViewer = ({ session, onClose }: SessionViewerProps): JSX.Ele
         <span className="viewer__url" title={session.targetUrl}>
           {session.browser} · {session.targetUrl}
         </span>
+        <button
+          type="button"
+          className="button button--small"
+          onClick={() => setReloadKey((key) => key + 1)}
+        >
+          ⟳ Reload stream
+        </button>
         <a
           className="button button--small"
           href={session.browserUrl}
@@ -25,6 +38,7 @@ export const SessionViewer = ({ session, onClose }: SessionViewerProps): JSX.Ele
         </a>
       </div>
       <iframe
+        key={reloadKey}
         className="viewer__frame"
         title={`Airlock session ${session.sessionId}`}
         src={session.browserUrl}
@@ -32,7 +46,9 @@ export const SessionViewer = ({ session, onClose }: SessionViewerProps): JSX.Ele
       />
       <p className="viewer__hint muted">
         The browser streams over the container&apos;s self-signed TLS certificate. If the frame
-        stays blank, open it in a new tab once to accept the certificate, then return here.
+        stays blank, open it in a new tab once to accept the certificate, then Reload stream.
+        Clipboard sync and file upload/download are available from the Kasm control bar inside the
+        stream (the tab on the left edge).
         {session.vncPassword ? (
           <>
             {" "}

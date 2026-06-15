@@ -36,11 +36,18 @@ export class AirlockApiError extends Error {
   }
 }
 
+export interface ImagePullResult {
+  image: string;
+  ok: boolean;
+}
+
 export interface AirlockClient {
   getMeta(): Promise<AirlockMeta>;
   listSessions(): Promise<SessionResponse[]>;
   createSession(input: CreateSessionInput): Promise<SessionResponse>;
+  extendSession(sessionId: string, ttlSeconds: number): Promise<SessionResponse>;
   stopSession(sessionId: string): Promise<void>;
+  pullImages(): Promise<ImagePullResult[]>;
 }
 
 export interface AirlockClientOptions {
@@ -100,10 +107,22 @@ export const createAirlockClient = ({
         body: JSON.stringify(input)
       });
     },
+    async extendSession(sessionId, ttlSeconds) {
+      return request<SessionResponse>(`/api/sessions/${encodeURIComponent(sessionId)}`, {
+        method: "PATCH",
+        body: JSON.stringify({ ttlSeconds })
+      });
+    },
     async stopSession(sessionId) {
       await request<void>(`/api/sessions/${encodeURIComponent(sessionId)}`, {
         method: "DELETE"
       });
+    },
+    async pullImages() {
+      const payload = await request<{ images: ImagePullResult[] }>("/api/images/pull", {
+        method: "POST"
+      });
+      return payload.images;
     }
   };
 };

@@ -15,3 +15,9 @@ export const createSessionBodySchema = z.object({
 });
 
 export type CreateSessionBody = z.infer<typeof createSessionBodySchema>;
+
+export const extendSessionBodySchema = z.object({
+  ttlSeconds: z.number().int().min(TTL_MIN_SECONDS).max(TTL_MAX_SECONDS)
+});
+
+export type ExtendSessionBody = z.infer<typeof extendSessionBodySchema>;

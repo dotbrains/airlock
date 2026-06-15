@@ -26,7 +26,9 @@ export const App = (): JSX.Element => {
   const [launchError, setLaunchError] = useState<string | null>(null);
   const [launching, setLaunching] = useState(false);
   const [terminatingId, setTerminatingId] = useState<string | null>(null);
+  const [extendingId, setExtendingId] = useState<string | null>(null);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [pullState, setPullState] = useState<"idle" | "pulling" | "done">("idle");
 
   const client = useMemo(() => createAirlockClient({ token: token || undefined }), [token]);
 
@@ -108,6 +110,30 @@ export const App = (): JSX.Element => {
     }
   };
 
+  const handleExtend = async (sessionId: string, ttlSeconds: number): Promise<void> => {
+    setExtendingId(sessionId);
+    try {
+      await client.extendSession(sessionId, ttlSeconds);
+      await refreshSessions();
+    } catch (error) {
+      setListError(messageOf(error));
+    } finally {
+      setExtendingId(null);
+    }
+  };
+
+  const handlePullImages = async (): Promise<void> => {
+    setPullState("pulling");
+    try {
+      await client.pullImages();
+      setPullState("done");
+      window.setTimeout(() => setPullState("idle"), 3000);
+    } catch (error) {
+      setLaunchError(messageOf(error));
+      setPullState("idle");
+    }
+  };
+
   const handleTerminate = async (sessionId: string): Promise<void> => {
     setTerminatingId(sessionId);
     try {
@@ -167,6 +193,21 @@ export const App = (): JSX.Element => {
                   onLaunch={handleLaunch}
                 />
               ) : null}
+              <div className="panel__footer">
+                <button
+                  type="button"
+                  className="button button--small button--ghost"
+                  disabled={pullState === "pulling"}
+                  onClick={() => void handlePullImages()}
+                >
+                  {pullState === "pulling"
+                    ? "Pulling images…"
+                    : pullState === "done"
+                      ? "Images ready"
+                      : "Pre-pull browser images"}
+                </button>
+                <span className="muted">Warm the Kasm images so the first launch is fast.</span>
+              </div>
             </section>
 
             <section className="panel">
@@ -177,7 +218,9 @@ export const App = (): JSX.Element => {
               <SessionList
                 sessions={sessions}
                 terminatingId={terminatingId}
+                extendingId={extendingId}
                 onOpen={(id) => setActiveSessionId(id)}
+                onExtend={handleExtend}
                 onTerminate={handleTerminate}
               />
             </section>

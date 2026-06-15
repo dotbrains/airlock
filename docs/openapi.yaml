@@ -179,6 +179,34 @@ paths:
           $ref: "#/components/responses/NotFound"
         "410":
           $ref: "#/components/responses/Gone"
+    patch:
+      summary: Extend a session's TTL.
+      description: >-
+        Pushes the session's expiry to now + ttlSeconds (clamped 60–86400). The
+        extension is held in the API process's memory (Docker labels are
+        immutable, no database) and is lost on restart.
+      operationId: extendSession
+      tags:
+        - sessions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExtendSessionRequest"
+      responses:
+        "200":
+          description: The session with its updated expiry.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
     delete:
       summary: Stop and remove a session.
       operationId: deleteSession
@@ -191,6 +219,21 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/images/pull:
+    post:
+      summary: Pre-pull all configured browser images.
+      operationId: pullImages
+      tags:
+        - sessions
+      responses:
+        "200":
+          description: Per-image pull results.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImagePullResults"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
   /api/internal/prune:
     post:
       summary: Prune all expired session containers.
@@ -456,6 +499,38 @@ components:
           type: integer
           description: Number of expired sessions removed.
           example: 3
+    ExtendSessionRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - ttlSeconds
+      properties:
+        ttlSeconds:
+          type: integer
+          minimum: 60
+          maximum: 86400
+          description: Seconds from now until the session's new expiry.
+          example: 900
+    ImagePullResults:
+      type: object
+      additionalProperties: false
+      required:
+        - images
+      properties:
+        images:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              - image
+              - ok
+            properties:
+              image:
+                type: string
+                example: kasmweb/chromium:1.18.0
+              ok:
+                type: boolean
     Error:
       type: object
       additionalProperties: false

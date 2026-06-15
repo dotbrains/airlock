@@ -48,7 +48,9 @@ expose. See [docs/configuration.md](configuration.md).
 | `POST`   | `/api/sessions`            | bearer | Create a new browser session                     |
 | `GET`    | `/api/sessions`            | bearer | List active sessions                             |
 | `GET`    | `/api/sessions/:sessionId` | bearer | Get session details                              |
+| `PATCH`  | `/api/sessions/:sessionId` | bearer | Extend a session's TTL                           |
 | `DELETE` | `/api/sessions/:sessionId` | bearer | Stop and remove a session                        |
+| `POST`   | `/api/images/pull`         | bearer | Pre-pull all configured browser images           |
 | `POST`   | `/api/internal/prune`      | token  | Prune all expired sessions                       |
 | `GET`    | `/s/:sessionId`            | none   | Public short URL (redirects to container stream) |
 
@@ -178,9 +180,39 @@ shape as the `POST /api/sessions` response.
 
 Returns session details including the container URL. Returns `410 Gone` if the session has expired.
 
+## `PATCH /api/sessions/:sessionId`
+
+Extends a running session's TTL. The new expiry is `now + ttlSeconds` (clamped
+60–86400). Returns `200` with the updated session, `404` if the session is
+missing, or `400` on an invalid body.
+
+```json
+{ "ttlSeconds": 900 }
+```
+
+> Because Docker container labels are immutable and Airlock keeps no database,
+> the extension is held in the API process's memory and applied on read/prune.
+> It is best-effort: an API restart drops it and the session reverts to its
+> original label expiry. Single-node only.
+
 ## `DELETE /api/sessions/:sessionId`
 
 Force-removes a session container. Returns `204` on success, `404` if not found.
+
+## `POST /api/images/pull`
+
+Pre-pulls every configured browser image so the first launch of each is fast
+(`createSession` also pulls on demand if an image is missing). Returns the
+per-image result.
+
+```json
+{
+  "images": [
+    { "image": "kasmweb/chromium:1.18.0", "ok": true },
+    { "image": "kasmweb/firefox:1.18.0", "ok": true }
+  ]
+}
+```
 
 ## `POST /api/internal/prune`
 

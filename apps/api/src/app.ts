@@ -16,7 +16,7 @@ import { logger } from "./logger";
 import { Metrics } from "./metrics";
 import { createRateLimit } from "./rate-limit";
 import { resolveOrRespond } from "./resolve-session";
-import { createSessionBodySchema } from "./schemas";
+import { createSessionBodySchema, extendSessionBodySchema } from "./schemas";
 import { toSessionResponse } from "./session-response";
 
 export interface CreateAppOptions {
@@ -180,6 +180,43 @@ export const createApp = ({ config, sessionRuntime, metrics }: CreateAppOptions)
       }
 
       response.json(toSessionResponse(session, config));
+    })
+  );
+
+  app.patch(
+    "/api/sessions/:sessionId",
+    bearerAuth,
+    asyncRoute(async (request: Request, response: Response) => {
+      const parsed = extendSessionBodySchema.safeParse(request.body);
+      if (!parsed.success) {
+        response.status(400).json({
+          error: parsed.error.issues.map((issue) => issue.message).join(", ")
+        });
+        return;
+      }
+
+      const session = await sessionRuntime.extendSession(
+        request.params.sessionId,
+        parsed.data.ttlSeconds
+      );
+      if (!session) {
+        response.status(404).json({ error: "Session not found." });
+        return;
+      }
+      logger.info("session.extended", {
+        sessionId: session.sessionId,
+        expiresAt: session.expiresAt
+      });
+      response.json(toSessionResponse(session, config));
+    })
+  );
+
+  app.post(
+    "/api/images/pull",
+    bearerAuth,
+    asyncRoute(async (_request: Request, response: Response) => {
+      const images = await sessionRuntime.pullBrowserImages();
+      response.json({ images });
     })
   );
 

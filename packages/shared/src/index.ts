@@ -60,12 +60,22 @@ export interface AirlockSession {
   expiresAt: string;
 }
 
+export interface ImagePullResult {
+  image: string;
+  ok: boolean;
+}
+
 export interface SessionRuntime {
   createSession(input: CreateSessionInput): Promise<AirlockSession>;
   getSession(sessionId: string): Promise<AirlockSession | null>;
   listSessions(): Promise<AirlockSession[]>;
+  // Push a running session's expiry further out by ttlSeconds from now.
+  // Returns the updated session, or null if it is missing/expired.
+  extendSession(sessionId: string, ttlSeconds: number): Promise<AirlockSession | null>;
   stopSession(sessionId: string): Promise<boolean>;
   pruneExpiredSessions(now?: Date): Promise<number>;
+  // Pre-pull every configured browser image so the first launch is fast.
+  pullBrowserImages(): Promise<ImagePullResult[]>;
   // Liveness of the underlying engine, for the readiness probe.
   ping(): Promise<boolean>;
 }
