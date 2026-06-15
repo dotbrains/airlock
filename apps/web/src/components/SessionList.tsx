@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SessionResponse } from "../lib/api";
 import { formatTimeRemaining } from "../lib/time";
 
@@ -73,12 +73,16 @@ export const SessionList = ({
 
 const CopyLinkButton = ({ url }: { url: string }): JSX.Element => {
   const [copied, setCopied] = useState(false);
+  const resetTimer = useRef<number | undefined>(undefined);
+
+  useEffect(() => () => window.clearTimeout(resetTimer.current), []);
 
   const copy = async (): Promise<void> => {
     try {
       await navigator.clipboard.writeText(url);
       setCopied(true);
-      window.setTimeout(() => setCopied(false), 1500);
+      window.clearTimeout(resetTimer.current);
+      resetTimer.current = window.setTimeout(() => setCopied(false), 1500);
     } catch {
       // Clipboard access can be denied; leave the label unchanged.
     }

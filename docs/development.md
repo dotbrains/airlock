@@ -128,19 +128,35 @@ touches Docker directly.
 
 Tests run with Vitest. Two workspaces have real suites:
 
-- **`apps/api`** — 56 tests across 11 files exercising the app and auth, the
-  Docker runtime through a `FakeDocker`, schemas, session policy, session
-  labels, container profile, the internal API, and session resolution.
-- **`apps/web`** — 14 tests across `lib/api`, `lib/time`, and the
-  `LaunchForm` component, using `@testing-library/react` + `jsdom`.
+- **`apps/api`** — the app and auth, the Docker runtime through a `FakeDocker`
+  (including resource limits, network isolation, per-session passwords, TTL
+  extension, and image pulls), the rate limiter, config defaults, schemas,
+  session policy/labels, container profile, the internal API, and an
+  `openapi.yaml` drift guard.
+- **`apps/web`** — `lib/api`, `lib/time`, and the `App`, `LaunchForm`,
+  `SessionList`, and `SessionViewer` components, using
+  `@testing-library/react` + `jsdom`.
 
 `packages/shared` and `apps/worker` have no real test suites (their `test`
 script is a no-op).
 
 The key test seam is `SessionRuntime`: the API depends on the interface, and
 two adapters keep it honest — `DockerSessionRuntime` in production and
-`FakeSessionRuntime` in tests — so the suite creates no real containers. See
-[architecture.md](architecture.md#module-map).
+`FakeSessionRuntime` in tests — so the default suite creates no real
+containers. See [architecture.md](architecture.md#module-map).
+
+**Opt-in end-to-end.** `src/__tests__/e2e.docker.test.ts` drives a real Docker
+engine through the full lifecycle (ping → pull → create → list → extend →
+stop). It is skipped unless `AIRLOCK_E2E=1`, so normal CI never runs it:
+
+```bash
+AIRLOCK_E2E=1 AIRLOCK_IMAGE_CHROMIUM=kasmweb/chromium:1.18.0 \
+  bun run --filter @airlock/api test
+```
+
+**OpenAPI drift guard.** `openapi-sync.test.ts` asserts `docs/openapi.yaml`
+stays aligned with the code's browser catalog, TTL bounds, and route table, so
+the spec can't silently fall out of date.
 
 ## Building
 
