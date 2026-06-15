@@ -61,6 +61,31 @@ describe("createAirlockClient", () => {
     });
   });
 
+  it("PATCHes the TTL on extend", async () => {
+    const fetchImpl = vi.fn(async (_url: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse({ sessionId: "a", expiresAt: "later" })
+    );
+    const client = createAirlockClient({ fetchImpl });
+
+    await client.extendSession("a b", 600);
+
+    const [url, init] = fetchImpl.mock.calls[0];
+    expect(url).toBe("/api/sessions/a%20b");
+    expect(init?.method).toBe("PATCH");
+    expect(JSON.parse(String(init?.body))).toEqual({ ttlSeconds: 600 });
+  });
+
+  it("unwraps the images array from the pull payload", async () => {
+    const fetchImpl = vi.fn(async (_url: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse({ images: [{ image: "kasmweb/chromium:1.18.0", ok: true }] })
+    );
+    const client = createAirlockClient({ fetchImpl });
+
+    const images = await client.pullImages();
+    expect(images).toEqual([{ image: "kasmweb/chromium:1.18.0", ok: true }]);
+    expect(fetchImpl.mock.calls[0][1]?.method).toBe("POST");
+  });
+
   it("tolerates a 204 with no body on stop", async () => {
     const fetchImpl = vi.fn(
       async (_url: RequestInfo | URL, _init?: RequestInit) => new Response(null, { status: 204 })

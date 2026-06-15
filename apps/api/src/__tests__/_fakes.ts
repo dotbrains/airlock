@@ -52,6 +52,16 @@ export const createFakeSessionRuntime = (
     async listSessions(): Promise<AirlockSession[]> {
       return current ? [current] : [];
     },
+    async extendSession(sessionId: string, ttlSeconds: number): Promise<AirlockSession | null> {
+      if (!current || current.sessionId !== sessionId) {
+        return null;
+      }
+      current = { ...current, expiresAt: new Date(Date.now() + ttlSeconds * 1000).toISOString() };
+      return current;
+    },
+    async pullBrowserImages() {
+      return [{ image: "kasmweb/chromium:1.18.0", ok: true }];
+    },
     async stopSession(sessionId: string): Promise<boolean> {
       stopped.push(sessionId);
       const wasPresent = current !== null;

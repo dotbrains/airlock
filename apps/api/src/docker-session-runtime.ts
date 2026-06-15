@@ -6,8 +6,10 @@ import {
   AirlockSession,
   CreateSessionInput,
   DecodedSessionLabels,
+  ImagePullResult,
   SessionRuntime,
   browserProfile,
+  clampTtl,
   decodeSessionLabels,
   encodeSessionLabels,
   expiresAt as computeExpiresAt,
@@ -86,6 +88,11 @@ export interface DockerSessionRuntimeOptions {
 export class DockerSessionRuntime implements SessionRuntime {
   private readonly docker: Docker;
   private readonly config: AirlockConfig;
+  // Extended expiries by sessionId. Docker labels are immutable after creation
+  // and there is no database, so a TTL extension is held in memory and applied
+  // on read/prune. It is best-effort: an API restart drops it and the session
+  // reverts to its label expiry. Single-node only.
+  private readonly expiryOverrides = new Map<string, string>();
 
   constructor(options: DockerSessionRuntimeOptions) {
     this.config = options.config;
@@ -110,6 +117,9 @@ export class DockerSessionRuntime implements SessionRuntime {
     if (launch.networkIsolation) {
       await this.ensureNetwork(launch.networkName);
     }
+    // createContainer does not auto-pull; make sure the image is present so the
+    // first launch on a fresh host works instead of failing with "no such image".
+    await this.ensureImage(image);
 
     const launchEnv = {
       ...profile.buildLaunchEnv({
@@ -183,6 +193,59 @@ export class DockerSessionRuntime implements SessionRuntime {
     }
   }
 
+  async extendSession(sessionId: string, ttlSeconds: number): Promise<AirlockSession | null> {
+    const match = await this.findContainerBySessionId(sessionId);
+    if (!match) {
+      return null;
+    }
+    const newExpiry = computeExpiresAt(new Date(), clampTtl(ttlSeconds));
+    this.expiryOverrides.set(sessionId, newExpiry.toISOString());
+    return this.mapContainerToSession(match.container, match.decoded);
+  }
+
+  async pullBrowserImages(): Promise<ImagePullResult[]> {
+    const images = [...new Set(Object.values(this.config.containerLaunch.browserImages))];
+    const results: ImagePullResult[] = [];
+    for (const image of images) {
+      try {
+        await this.pullImage(image);
+        results.push({ image, ok: true });
+      } catch (error) {
+        logger.warn("image.pull_failed", {
+          image,
+          message: error instanceof Error ? error.message : String(error)
+        });
+        results.push({ image, ok: false });
+      }
+    }
+    return results;
+  }
+
+  private async ensureImage(image: string): Promise<void> {
+    try {
+      await this.docker.getImage(image).inspect();
+      return;
+    } catch (error) {
+      if (!isContainerNotFound(error)) {
+        throw error;
+      }
+    }
+    await this.pullImage(image);
+  }
+
+  private async pullImage(image: string): Promise<void> {
+    const stream = await this.docker.pull(image);
+    await new Promise<void>((resolve, reject) => {
+      this.docker.modem.followProgress(stream, (error: Error | null) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve();
+        }
+      });
+    });
+  }
+
   async getSession(sessionId: string): Promise<AirlockSession | null> {
     const match = await this.findContainerBySessionId(sessionId);
     if (!match) {
@@ -215,11 +278,13 @@ export class DockerSessionRuntime implements SessionRuntime {
       return false;
     }
     await this.safeRemoveContainer(match.container.Id);
+    this.expiryOverrides.delete(sessionId);
     return true;
   }
 
   async pruneExpiredSessions(now: Date = new Date()): Promise<number> {
     const containers = await this.listManagedContainers(true);
+    const liveSessionIds = new Set<string>();
     let pruned = 0;
 
     for (const container of containers) {
@@ -227,10 +292,21 @@ export class DockerSessionRuntime implements SessionRuntime {
       if (!decoded) {
         continue;
       }
+      liveSessionIds.add(decoded.sessionId);
 
-      if (isExpired(decoded, now)) {
+      // Honor an in-memory TTL extension over the label's original expiry.
+      const effectiveExpiresAt = this.expiryOverrides.get(decoded.sessionId) ?? decoded.expiresAt;
+      if (isExpired({ expiresAt: effectiveExpiresAt }, now)) {
         await this.safeRemoveContainer(container.Id);
+        this.expiryOverrides.delete(decoded.sessionId);
         pruned += 1;
+      }
+    }
+
+    // Drop overrides for sessions that no longer exist (e.g. AutoRemoved).
+    for (const sessionId of this.expiryOverrides.keys()) {
+      if (!liveSessionIds.has(sessionId)) {
+        this.expiryOverrides.delete(sessionId);
       }
     }
     return pruned;
@@ -275,7 +351,8 @@ export class DockerSessionRuntime implements SessionRuntime {
       browserUrl: profile.streamUrl(this.config.server.sessionHost, hostPort),
       vncPassword: decoded.vncPassword,
       createdAt: decoded.createdAt,
-      expiresAt: decoded.expiresAt
+      // Reflect an in-memory TTL extension when one is set for this session.
+      expiresAt: this.expiryOverrides.get(decoded.sessionId) ?? decoded.expiresAt
     };
   }
 

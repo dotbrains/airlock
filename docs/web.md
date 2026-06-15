@@ -22,11 +22,17 @@ flowchart LR
   straight through.
 - **Launch.** Enter a URL, pick a browser (from `GET /api/meta`), set a
   lifetime, and launch. The browser catalog and TTL bounds come from the API,
-  so the form always matches the server's configuration.
+  so the form always matches the server's configuration. A **Pre-pull browser
+  images** action warms the Kasm images so the first launch is fast.
 - **Manage.** Active sessions are polled from `GET /api/sessions` every few
-  seconds with a live countdown to expiry. Each can be opened or terminated.
+  seconds with a live countdown to expiry. Each session can be opened,
+  **extended** (`+15m`, via `PATCH /api/sessions/:id`), copied as a share link,
+  or terminated.
 - **View.** Opening a session embeds the container's stream in an iframe, with
-  an "open in new tab" fallback for the container's self-signed certificate.
+  a **Reload stream** button (reconnect / re-accept the certificate) and an
+  "open in new tab" fallback for the self-signed certificate. Clipboard sync and
+  file upload/download are handled by the Kasm control bar inside the stream;
+  the per-session VNC password is shown beneath the frame.
 
 ## Running it
 

@@ -108,6 +108,48 @@ describe("Airlock API", () => {
     expect(response.status).toBe(429);
   });
 
+  it("extends a session's TTL via PATCH", async () => {
+    const app = createApp({
+      config: testConfig,
+      sessionRuntime: createFakeSessionRuntime()
+    });
+
+    const response = await request(app).patch("/api/sessions/session-1").send({ ttlSeconds: 600 });
+    expect(response.status).toBe(200);
+    expect(response.body.sessionId).toBe("session-1");
+  });
+
+  it("returns 404 when extending an unknown session", async () => {
+    const app = createApp({
+      config: testConfig,
+      sessionRuntime: createFakeSessionRuntime({ initial: null })
+    });
+
+    const response = await request(app).patch("/api/sessions/nope").send({ ttlSeconds: 600 });
+    expect(response.status).toBe(404);
+  });
+
+  it("rejects an invalid extend body", async () => {
+    const app = createApp({
+      config: testConfig,
+      sessionRuntime: createFakeSessionRuntime()
+    });
+
+    const response = await request(app).patch("/api/sessions/session-1").send({ ttlSeconds: 5 });
+    expect(response.status).toBe(400);
+  });
+
+  it("pulls browser images on demand", async () => {
+    const app = createApp({
+      config: testConfig,
+      sessionRuntime: createFakeSessionRuntime()
+    });
+
+    const response = await request(app).post("/api/images/pull");
+    expect(response.status).toBe(200);
+    expect(Array.isArray(response.body.images)).toBe(true);
+  });
+
   it("serves Prometheus metrics", async () => {
     const app = createApp({
       config: testConfig,

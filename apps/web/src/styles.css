@@ -141,6 +141,17 @@ code {
   gap: 0.5rem;
 }
 
+.panel__footer {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+  font-size: 0.82rem;
+}
+
 .login {
   width: min(380px, 100%);
   display: flex;

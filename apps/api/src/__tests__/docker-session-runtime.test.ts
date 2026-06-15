@@ -62,6 +62,7 @@ class FakeDocker {
   createCalls: CreateContainerCall[] = [];
   startedIds: string[] = [];
   networksCreated: string[] = [];
+  pulledImages: string[] = [];
   pingCount = 0;
   private readonly hostPortByContainerPort: Record<string, string>;
   private readonly nextContainerId: string;
@@ -138,6 +139,21 @@ class FakeDocker {
   ping = async (): Promise<string> => {
     this.pingCount += 1;
     return "OK";
+  };
+
+  getImage = (_name: string) => ({
+    inspect: async (): Promise<unknown> => ({ Id: "img" })
+  });
+
+  pull = async (image: string): Promise<unknown> => {
+    this.pulledImages.push(image);
+    return {};
+  };
+
+  modem = {
+    followProgress: (_stream: unknown, onFinished: (error: Error | null) => void): void => {
+      onFinished(null);
+    }
   };
 }
 
@@ -356,6 +372,48 @@ describe("DockerSessionRuntime", () => {
     });
     expect(await runtime.ping()).toBe(true);
     expect(docker.pingCount).toBe(1);
+  });
+
+  it("extendSession pushes the expiry out and keeps the container from pruning", async () => {
+    const docker = new FakeDocker({ containers: [makeFakeContainer()] });
+    const runtime = new DockerSessionRuntime({
+      config: baseConfig,
+      docker: docker as unknown as Docker
+    });
+
+    // The label expiry is 2026-04-30T12:30:00Z; extend well past a later "now".
+    const extended = await runtime.extendSession("s-1", 3600);
+    expect(extended).not.toBeNull();
+    expect(new Date(extended!.expiresAt).getTime()).toBeGreaterThan(
+      new Date("2026-04-30T13:00:00.000Z").getTime()
+    );
+
+    // At a time past the original label expiry, the extended session survives.
+    const pruned = await runtime.pruneExpiredSessions(new Date("2026-04-30T12:45:00.000Z"));
+    expect(pruned).toBe(0);
+    expect(docker.removed).toEqual([]);
+  });
+
+  it("extendSession returns null for an unknown session", async () => {
+    const docker = new FakeDocker({ containers: [makeFakeContainer()] });
+    const runtime = new DockerSessionRuntime({
+      config: baseConfig,
+      docker: docker as unknown as Docker
+    });
+    expect(await runtime.extendSession("missing", 600)).toBeNull();
+  });
+
+  it("pullBrowserImages pulls each unique configured image", async () => {
+    const docker = new FakeDocker();
+    const runtime = new DockerSessionRuntime({
+      config: baseConfig,
+      docker: docker as unknown as Docker
+    });
+
+    const results = await runtime.pullBrowserImages();
+    expect(results.every((r) => r.ok)).toBe(true);
+    expect(docker.pulledImages).toContain("kasmweb/chromium:1.18.0");
+    expect(docker.pulledImages).toContain("kasmweb/tor-browser:1.18.0");
   });
 
   it("createSession removes the container and throws when no host port is mapped", async () => {
