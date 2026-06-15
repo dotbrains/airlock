@@ -24,8 +24,9 @@ proportion to a local-first tool.
 ## Decision
 
 A single shared **bearer token** (`AIRLOCK_API_TOKEN`) gates the management
-API. `createBearerAuth` in `apps/api/src/auth.ts` extracts the `Bearer ` token
-and compares it to the configured secret in **constant time**
+API. `createBearerAuth` in `apps/api/src/auth.ts` extracts the bearer token
+from the `Authorization` header and compares it to the configured secret in
+**constant time**
 (`timingSafeEqual`), so a wrong token cannot be recovered by timing. The
 middleware is applied to `/api/meta` and every `/api/sessions*` route in
 `apps/api/src/app.ts`.

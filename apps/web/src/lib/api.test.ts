@@ -84,6 +84,19 @@ describe("createAirlockClient", () => {
     await expect(client.getMeta()).rejects.toBeInstanceOf(AirlockApiError);
   });
 
+  it("wraps a malformed 2xx body in AirlockApiError", async () => {
+    const fetchImpl = vi.fn(
+      async (_url: RequestInfo | URL, _init?: RequestInit) =>
+        new Response("not json", { status: 200, headers: { "content-type": "application/json" } })
+    );
+    const client = createAirlockClient({ fetchImpl });
+
+    await expect(client.listSessions()).rejects.toMatchObject({
+      name: "AirlockApiError",
+      status: 200
+    });
+  });
+
   it("strips a trailing slash from a custom base URL", async () => {
     const fetchImpl = vi.fn(async (_url: RequestInfo | URL, _init?: RequestInit) =>
       jsonResponse({ sessions: [] })

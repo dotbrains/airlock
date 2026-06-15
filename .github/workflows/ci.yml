@@ -22,9 +22,13 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: "1.1.x"
+          # Pin to the Bun that generated bun.lock; the text lockfile
+          # (lockfileVersion 1) is unreadable by older 1.1.x releases.
+          bun-version: "1.3.11"
       - name: Install dependencies
         run: bun install --frozen-lockfile
       - name: Run the aggregate check gate
@@ -36,6 +40,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
       - name: Build the shared deploy image
         # Smoke-builds the image every deploy/ adapter depends on; does not push.
         run: docker build -t airlock:ci .

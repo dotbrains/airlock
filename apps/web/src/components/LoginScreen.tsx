@@ -8,9 +8,14 @@ export interface LoginScreenProps {
 export const LoginScreen = ({ error, onConnect }: LoginScreenProps): JSX.Element => {
   const [token, setToken] = useState("");
 
+  const trimmed = token.trim();
+
   const handleSubmit = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault();
-    onConnect(token.trim());
+    if (!trimmed) {
+      return;
+    }
+    onConnect(trimmed);
   };
 
   return (
@@ -39,7 +44,7 @@ export const LoginScreen = ({ error, onConnect }: LoginScreenProps): JSX.Element
           />
         </label>
         {error ? <p className="error">{error}</p> : null}
-        <button type="submit" className="button button--primary">
+        <button type="submit" className="button button--primary" disabled={!trimmed}>
           Connect
         </button>
       </form>

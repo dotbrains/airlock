@@ -29,6 +29,12 @@ railway variables set \
   AIRLOCK_PUBLIC_BASE_URL=https://your-app.up.railway.app
 ```
 
+> `AIRLOCK_PUBLIC_BASE_URL` is the public Airlock (control-plane) host that
+> backs the `/s/:id` launch links. `AIRLOCK_SESSION_HOST` is different: it is
+> where the spawned **browser containers** are reachable — the Docker engine
+> host whose published ports clients connect to for the stream — so it points
+> at the engine, not the Railway app.
+
 Then add the **worker service** in the Railway dashboard:
 
 - Same repo/image, **start command**: `bun apps/worker/dist/index.js`

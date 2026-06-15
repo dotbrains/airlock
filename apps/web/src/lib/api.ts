@@ -76,7 +76,13 @@ export const createAirlockClient = ({
     if (response.status === 204) {
       return undefined as T;
     }
-    return (await response.json()) as T;
+    try {
+      return (await response.json()) as T;
+    } catch {
+      // A 2xx with a malformed body still has to surface through the same
+      // error type callers catch, not as a raw SyntaxError.
+      throw new AirlockApiError("Malformed response from the Airlock API.", response.status);
+    }
   };
 
   return {

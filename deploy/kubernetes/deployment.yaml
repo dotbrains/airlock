@@ -8,7 +8,9 @@
 # in the secret); mounting a node's container socket is possible but grants the
 # Pod node-root and is discouraged. See deploy/README.md.
 #
-# Replace `image:` with your registry path, e.g. ghcr.io/dotbrains/airlock:latest.
+# Replace `image:` with your registry path and pin it to an immutable tag or,
+# better, a digest (e.g. ghcr.io/dotbrains/airlock@sha256:...) for reproducible
+# rollouts and rollback. The examples below use a version tag as a placeholder.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -34,9 +36,16 @@ spec:
         fsGroup: 10001
       containers:
         - name: api
-          image: ghcr.io/dotbrains/airlock:latest
+          image: ghcr.io/dotbrains/airlock:0.1.0
           imagePullPolicy: IfNotPresent
           args: ["bun", "apps/api/dist/index.js"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
           ports:
             - name: http
               containerPort: 8787
@@ -69,6 +78,13 @@ spec:
             limits:
               cpu: "500m"
               memory: "512Mi"
+          # readOnlyRootFilesystem needs a writable scratch dir for temp files.
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -95,9 +111,16 @@ spec:
         runAsUser: 10001
       containers:
         - name: worker
-          image: ghcr.io/dotbrains/airlock:latest
+          image: ghcr.io/dotbrains/airlock:0.1.0
           imagePullPolicy: IfNotPresent
           args: ["bun", "apps/worker/dist/index.js"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
           env:
             - name: AIRLOCK_API_BASE_URL
               value: "http://airlock-api:8787"
@@ -111,3 +134,9 @@ spec:
             limits:
               cpu: "200m"
               memory: "256Mi"
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}

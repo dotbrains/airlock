@@ -86,5 +86,10 @@ export const LaunchForm = ({ meta, launching, error, onLaunch }: LaunchFormProps
   );
 };
 
-const clampTtl = (seconds: number, meta: AirlockMeta): number =>
-  Math.max(meta.ttlMinSeconds, Math.min(meta.ttlMaxSeconds, seconds));
+const clampTtl = (seconds: number, meta: AirlockMeta): number => {
+  // A cleared number input yields 0 (and a malformed one NaN); treat anything
+  // non-finite or non-positive as "use the default" rather than letting it
+  // reach the API or silently flooring to the minimum.
+  const value = Number.isFinite(seconds) && seconds > 0 ? seconds : meta.defaultTtlSeconds;
+  return Math.max(meta.ttlMinSeconds, Math.min(meta.ttlMaxSeconds, value));
+};

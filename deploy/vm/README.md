@@ -5,7 +5,9 @@ the host Docker engine through the socket; the worker reaps expired sessions.
 
 ## Prerequisites
 
-- A Linux host with Docker Engine installed and running.
+- A Linux host with **Docker Engine 20.10+** installed and running. The worker
+  unit uses `--add-host host.docker.internal:host-gateway`, which older engines
+  reject with an "invalid host-gateway" error.
 - The shared image, built once on the host (or pulled from your registry):
 
   ```bash
