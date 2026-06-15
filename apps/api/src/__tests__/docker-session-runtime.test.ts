@@ -3,42 +3,18 @@ import type Docker from "dockerode";
 import { encodeSessionLabels } from "@airlock/shared";
 import { DockerSessionRuntime } from "../docker-session-runtime";
 import type { AirlockConfig } from "../config";
+import { makeTestConfig } from "./_config";
 
 type ContainerSummary = Awaited<ReturnType<Docker["listContainers"]>>[number];
 
-const baseConfig: AirlockConfig = {
-  server: {
-    port: 8787,
-    publicBaseUrl: "http://localhost:8787",
-    sessionHost: "localhost"
-  },
-  sessionDefaults: {
-    ttlSeconds: 1800,
-    browser: "chromium"
-  },
-  containerLaunch: {
-    dockerSocketPath: "/var/run/docker.sock",
-    shmSizeBytes: 1073741824,
-    vncPassword: "pw",
-    browserImages: {
-      chromium: "kasmweb/chromium:1.18.0",
-      chrome: "kasmweb/chrome:1.18.0",
-      firefox: "kasmweb/firefox:1.18.0",
-      edge: "kasmweb/edge:1.18.0",
-      brave: "kasmweb/brave:1.18.0",
-      vivaldi: "kasmweb/vivaldi:1.18.0",
-      tor: "kasmweb/tor-browser:1.18.0"
-    }
-  },
-  auth: {},
-  internal: {}
-};
+const baseConfig: AirlockConfig = makeTestConfig();
 
 const makeFakeContainer = (overrides: Partial<ContainerSummary> = {}): ContainerSummary => {
   const labels = encodeSessionLabels({
     sessionId: "s-1",
     browser: "chromium",
     targetUrl: "https://example.com",
+    vncPassword: "vnc-s-1",
     createdAt: new Date("2026-04-30T12:00:00.000Z"),
     expiresAt: new Date("2026-04-30T12:30:00.000Z")
   });
@@ -67,6 +43,11 @@ interface CreateContainerCall {
   labels: Record<string, string>;
   exposedPorts: string[];
   shmSize: number;
+  networkMode?: string;
+  memory?: number;
+  nanoCpus?: number;
+  pidsLimit?: number;
+  securityOpt?: string[];
 }
 
 interface FakeDockerOptions {
@@ -80,6 +61,8 @@ class FakeDocker {
   removed: string[] = [];
   createCalls: CreateContainerCall[] = [];
   startedIds: string[] = [];
+  networksCreated: string[] = [];
+  pingCount = 0;
   private readonly hostPortByContainerPort: Record<string, string>;
   private readonly nextContainerId: string;
 
@@ -97,7 +80,14 @@ class FakeDocker {
     Env: string[];
     Labels: Record<string, string>;
     ExposedPorts: Record<string, unknown>;
-    HostConfig: { ShmSize: number };
+    HostConfig: {
+      ShmSize: number;
+      NetworkMode?: string;
+      Memory?: number;
+      NanoCpus?: number;
+      PidsLimit?: number;
+      SecurityOpt?: string[];
+    };
   }) => {
     this.createCalls.push({
       name: opts.name,
@@ -105,7 +95,12 @@ class FakeDocker {
       env: opts.Env,
       labels: opts.Labels,
       exposedPorts: Object.keys(opts.ExposedPorts),
-      shmSize: opts.HostConfig.ShmSize
+      shmSize: opts.HostConfig.ShmSize,
+      networkMode: opts.HostConfig.NetworkMode,
+      memory: opts.HostConfig.Memory,
+      nanoCpus: opts.HostConfig.NanoCpus,
+      pidsLimit: opts.HostConfig.PidsLimit,
+      securityOpt: opts.HostConfig.SecurityOpt
     });
     const id = this.nextContainerId;
     const ports = this.hostPortByContainerPort;
@@ -134,6 +129,16 @@ class FakeDocker {
       this.containers = this.containers.filter((c) => c.Id !== id);
     }
   });
+
+  createNetwork = async (opts: { Name: string }): Promise<unknown> => {
+    this.networksCreated.push(opts.Name);
+    return {};
+  };
+
+  ping = async (): Promise<string> => {
+    this.pingCount += 1;
+    return "OK";
+  };
 }
 
 describe("DockerSessionRuntime", () => {
@@ -167,6 +172,7 @@ describe("DockerSessionRuntime", () => {
         sessionId: "older",
         browser: "firefox",
         targetUrl: "https://a.example",
+        vncPassword: "vnc-older",
         createdAt: new Date("2026-04-30T11:00:00.000Z"),
         expiresAt: new Date("2026-04-30T11:30:00.000Z")
       })
@@ -177,6 +183,7 @@ describe("DockerSessionRuntime", () => {
         sessionId: "newer",
         browser: "chromium",
         targetUrl: "https://b.example",
+        vncPassword: "vnc-newer",
         createdAt: new Date("2026-04-30T12:00:00.000Z"),
         expiresAt: new Date("2026-04-30T12:30:00.000Z")
       })
@@ -232,6 +239,7 @@ describe("DockerSessionRuntime", () => {
         sessionId: "expired",
         browser: "chromium",
         targetUrl: "https://example.com",
+        vncPassword: "vnc-expired",
         createdAt: new Date("2026-04-30T11:00:00.000Z"),
         expiresAt: new Date("2026-04-30T11:30:00.000Z")
       })
@@ -242,6 +250,7 @@ describe("DockerSessionRuntime", () => {
         sessionId: "fresh",
         browser: "chromium",
         targetUrl: "https://example.com",
+        vncPassword: "vnc-fresh",
         createdAt: new Date("2026-04-30T12:00:00.000Z"),
         expiresAt: new Date("2026-04-30T13:00:00.000Z")
       })
@@ -274,6 +283,8 @@ describe("DockerSessionRuntime", () => {
     expect(session.targetUrl).toBe("https://example.com");
     expect(session.browserUrl).toBe("https://localhost:32792");
     expect(session.sessionId).toMatch(/[0-9a-f-]{36}/);
+    // Each session gets a distinct, non-empty VNC password.
+    expect(session.vncPassword.length).toBeGreaterThan(0);
     expect(docker.startedIds).toEqual(["abc"]);
     expect(docker.createCalls).toHaveLength(1);
 
@@ -282,10 +293,69 @@ describe("DockerSessionRuntime", () => {
     expect(call.exposedPorts).toEqual(["6901/tcp"]);
     expect(call.shmSize).toBe(1073741824);
     expect(call.env).toContain("LAUNCH_URL=https://example.com");
-    expect(call.env).toContain("VNC_PW=pw");
+    // The launched password matches what the session reports back.
+    expect(call.env).toContain(`VNC_PW=${session.vncPassword}`);
     expect(call.labels["airlock.managed"]).toBe("true");
     expect(call.labels["airlock.session_id"]).toBe(session.sessionId);
     expect(call.labels["airlock.target_url"]).toBe("https://example.com");
+    expect(call.labels["airlock.vnc_password"]).toBe(session.vncPassword);
+  });
+
+  it("applies resource limits and privilege hardening", async () => {
+    const docker = new FakeDocker();
+    const runtime = new DockerSessionRuntime({
+      config: baseConfig,
+      docker: docker as unknown as Docker
+    });
+
+    await runtime.createSession({
+      browser: "chromium",
+      targetUrl: "https://example.com",
+      ttlSeconds: 1800
+    });
+
+    const call = docker.createCalls[0];
+    expect(call.memory).toBe(baseConfig.containerLaunch.memoryBytes);
+    expect(call.nanoCpus).toBe(baseConfig.containerLaunch.nanoCpus);
+    expect(call.pidsLimit).toBe(baseConfig.containerLaunch.pidsLimit);
+    expect(call.securityOpt).toEqual(["no-new-privileges"]);
+  });
+
+  it("attaches sessions to the isolated network when enabled", async () => {
+    const isolatedConfig: AirlockConfig = makeTestConfig({
+      containerLaunch: {
+        ...baseConfig.containerLaunch,
+        networkIsolation: true,
+        networkName: "airlock-net",
+        egressProxy: "http://proxy.internal:3128"
+      }
+    });
+    const docker = new FakeDocker();
+    const runtime = new DockerSessionRuntime({
+      config: isolatedConfig,
+      docker: docker as unknown as Docker
+    });
+
+    await runtime.createSession({
+      browser: "chromium",
+      targetUrl: "https://example.com",
+      ttlSeconds: 1800
+    });
+
+    expect(docker.networksCreated).toContain("airlock-net");
+    const call = docker.createCalls[0];
+    expect(call.networkMode).toBe("airlock-net");
+    expect(call.env).toContain("HTTPS_PROXY=http://proxy.internal:3128");
+  });
+
+  it("ping reflects engine reachability", async () => {
+    const docker = new FakeDocker();
+    const runtime = new DockerSessionRuntime({
+      config: baseConfig,
+      docker: docker as unknown as Docker
+    });
+    expect(await runtime.ping()).toBe(true);
+    expect(docker.pingCount).toBe(1);
   });
 
   it("createSession removes the container and throws when no host port is mapped", async () => {

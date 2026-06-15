@@ -5,6 +5,7 @@ import { discoverEnvFile } from "@airlock/shared";
 import { createApp } from "./app";
 import { loadConfig } from "./config";
 import { DockerSessionRuntime } from "./docker-session-runtime";
+import { logger } from "./logger";
 
 const envFile = discoverEnvFile({
   envFileOverride: process.env.AIRLOCK_ENV_FILE,
@@ -25,12 +26,40 @@ if (!config.server.webDir) {
     config.server.webDir = bundledWebDir;
   }
 }
+
+// Secure-by-default nudge: a token-less API bound beyond loopback is open to
+// anyone who can reach the host. We warn rather than refuse so the local
+// docker-compose flow (which binds 0.0.0.0 inside the container but only maps
+// 127.0.0.1 on the host) keeps working.
+const isLoopbackBind = ["127.0.0.1", "::1", "localhost"].includes(config.server.bindHost);
+if (!config.auth.token && !isLoopbackBind) {
+  logger.warn("auth.token_unset", {
+    message:
+      "AIRLOCK_API_TOKEN is unset and the API is not bound to loopback; the management API is unauthenticated. Set AIRLOCK_API_TOKEN before exposing Airlock."
+  });
+}
 const runtime = new DockerSessionRuntime({ config });
 const app = createApp({
   config,
   sessionRuntime: runtime
 });
 
-app.listen(config.server.port, () => {
-  process.stdout.write(`Airlock API listening on http://localhost:${config.server.port}\n`);
+const server = app.listen(config.server.port, config.server.bindHost, () => {
+  logger.info("api.listening", {
+    host: config.server.bindHost,
+    port: config.server.port
+  });
 });
+
+const shutdown = (signal: string): void => {
+  logger.info("api.shutdown", { signal });
+  server.close(() => process.exit(0));
+  // Don't hang forever if connections refuse to drain; a forced exit is a
+  // failed graceful shutdown, so signal it with a non-zero code.
+  setTimeout(() => {
+    logger.warn("api.shutdown_forced", { signal });
+    process.exit(1);
+  }, 5000).unref();
+};
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));

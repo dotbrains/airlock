@@ -47,13 +47,22 @@ ports exhausted, a daemon-level port-binding restriction, or the engine under
 resource pressure. Check `docker ps`/`docker info`, free ports, and retry.
 
 **Cannot reach Docker / session creation hangs or errors.** The API cannot
-talk to the engine. For the host-socket path, confirm
-`AIRLOCK_DOCKER_SOCKET_PATH` (default `/var/run/docker.sock`) is correct and the
-socket is bind-mounted with adequate permissions for UID `10001`. For a remote
-engine, confirm `AIRLOCK_DOCKER_HOST` is reachable and, for `https://`, that
+talk to the engine. Probe `GET /readyz` — it returns `503` with
+`{"ok":false,"engine":"unreachable"}` when the engine is unreachable (`/healthz`
+stays green regardless, since it only checks the API process). For the
+host-socket path, confirm `AIRLOCK_DOCKER_SOCKET_PATH` (default
+`/var/run/docker.sock`) is correct and bind-mounted. For a remote engine,
+confirm `AIRLOCK_DOCKER_HOST` is reachable and, for `https://`, that
 `AIRLOCK_DOCKER_CERT_PATH` points at a directory holding
-`ca.pem`/`cert.pem`/`key.pem`. `/healthz` stays green even when the engine is
-unreachable — it only checks the API process.
+`ca.pem`/`cert.pem`/`key.pem`.
+
+**`/readyz` is 503 with the socket mounted (permission denied).** The image
+runs as non-root (UID `10001`), which cannot read a `root:docker` socket unless
+it shares the socket's group. Read the socket's group id with
+`stat -c '%g' "$AIRLOCK_DOCKER_SOCKET_PATH"` (defaults to `/var/run/docker.sock`;
+it is `0` on Docker Desktop). In the Compose adapters set `DOCKER_GID` to that
+value so `group_add` grants access; for `docker run`, pass the numeric id as
+`--group-add <gid>`.
 
 **Image pull failures on first session.** The configured Kasm tag does not
 exist or is unreachable. Verify `AIRLOCK_IMAGE_<BROWSER>` (defaults pin

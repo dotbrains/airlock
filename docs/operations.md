@@ -38,19 +38,44 @@ optionally with `AIRLOCK_DOCKER_CERT_PATH` for TLS). See
 
 ## Health probing
 
-| Surface                      | Use                                                                   |
-| ---------------------------- | --------------------------------------------------------------------- |
-| `GET /healthz` (auth-exempt) | Liveness probe; returns `{"ok":true}`. Backs the image `HEALTHCHECK`. |
-| `GET /health` (auth-exempt)  | Alias of `/healthz` for existing tooling.                             |
+| Surface                      | Use                                                                             |
+| ---------------------------- | ------------------------------------------------------------------------------- |
+| `GET /healthz` (auth-exempt) | Liveness probe; returns `{"ok":true}`. Backs the image `HEALTHCHECK`.           |
+| `GET /health` (auth-exempt)  | Alias of `/healthz` for existing tooling.                                       |
+| `GET /readyz` (auth-exempt)  | Readiness probe; pings the Docker engine. `200` when reachable, `503` when not. |
 
 ```bash
-curl -fsS http://127.0.0.1:8787/healthz
+curl -fsS http://127.0.0.1:8787/healthz   # liveness — process up
+curl -fsS http://127.0.0.1:8787/readyz    # readiness — engine reachable
 ```
 
-Neither probe requires a token, so orchestrator and edge health checks need no
-credentials. A failing probe means the API process is down — it does not check
-the Docker engine, so a healthy `/healthz` with failing session creation points
-at engine access (see [troubleshooting.md](troubleshooting.md)).
+`/healthz` is liveness-only: it means the API process is up but does **not**
+check the Docker engine. `/readyz` is the engine-reachability probe — it
+returns `{"ok":true,"engine":"reachable"}` when the engine responds to a ping
+and `503` with `{"ok":false,"engine":"unreachable"}` otherwise. Point
+deployment **liveness** probes at `/healthz` and **readiness** probes at
+`/readyz`; a healthy `/healthz` with a failing `/readyz` points at engine
+access (see [troubleshooting.md](troubleshooting.md)). Neither requires a
+token.
+
+## Metrics
+
+`GET /metrics` exposes Prometheus text (Content-Type
+`text/plain; version=0.0.4`). Unlike the probes it **requires** the bearer
+token, so scrape it with the `Authorization` header:
+
+```bash
+curl -fsS -H "Authorization: Bearer $AIRLOCK_API_TOKEN" \
+  http://127.0.0.1:8787/metrics
+```
+
+| Metric                                  | Type    | Meaning                     |
+| --------------------------------------- | ------- | --------------------------- |
+| `airlock_sessions_created_total`        | counter | Sessions created            |
+| `airlock_sessions_stopped_total`        | counter | Sessions stopped (delete)   |
+| `airlock_sessions_expired_total`        | counter | Sessions expired and pruned |
+| `airlock_session_create_failures_total` | counter | Session creation failures   |
+| `airlock_sessions_active`               | gauge   | Currently active sessions   |
 
 ## The prune / cleanup loop
 
@@ -140,6 +165,55 @@ sessions crash rendering heavy pages, lower it to pack more sessions per host:
 
 ```bash
 export AIRLOCK_SHM_SIZE_BYTES=2147483648   # 2 GB
+```
+
+## Per-session resource limits
+
+Each browser container is launched with caps on memory, CPU, and PIDs. Tune
+them to trade per-session headroom against density (set any to `0` to uncap):
+
+```bash
+export AIRLOCK_SESSION_MEMORY_BYTES=2147483648  # 2 GiB memory cap (default)
+export AIRLOCK_SESSION_CPUS=2                    # 2 CPUs (default, -> NanoCpus)
+export AIRLOCK_SESSION_PIDS_LIMIT=512            # 512 PIDs (default)
+```
+
+## Concurrency cap and rate limit
+
+Bound load on `POST /api/sessions`:
+
+```bash
+export AIRLOCK_MAX_SESSIONS=25            # concurrent active sessions (0 = unlimited)
+export AIRLOCK_RATE_LIMIT_WINDOW_MS=60000 # fixed window length
+export AIRLOCK_RATE_LIMIT_MAX=30          # requests per IP per window (0 = disabled)
+```
+
+Creation past the cap returns `429`; over-limit requests return `429` with a
+`Retry-After` header.
+
+## Network isolation and egress proxy
+
+By default sessions attach to a dedicated ICC-disabled bridge network so they
+cannot reach each other. Optionally route all session egress through a proxy:
+
+```bash
+export AIRLOCK_NETWORK_ISOLATION=true   # dedicated bridge (default)
+export AIRLOCK_NETWORK_NAME=airlock     # network name, created on demand
+export AIRLOCK_EGRESS_PROXY=http://proxy:3128  # inject HTTP(S)_PROXY into containers
+```
+
+The bridge alone does not block the host, the LAN, or cloud metadata endpoints
+— see [security.md](security.md#network-isolation).
+
+## Structured logs
+
+The API emits one JSON object per line. Events include `session.created`,
+`session.stopped`, `session.pruned`, `session.create_failed`, `api.listening`,
+`api.shutdown`, and `auth.token_unset`. Pipe them into your log aggregator and
+filter on the event name, e.g.:
+
+```bash
+docker logs <api-container> | grep session.create_failed
 ```
 
 ## Behind a proxy / TLS

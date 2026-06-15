@@ -7,6 +7,7 @@ export interface SessionResponse {
   targetUrl: string;
   browserUrl: string;
   sessionUrl: string;
+  vncPassword: string;
   createdAt: string;
   expiresAt: string;
 }

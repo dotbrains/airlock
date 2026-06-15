@@ -22,12 +22,15 @@ When `AIRLOCK_API_TOKEN` is set, the **management API** requires a bearer token:
 Authorization: Bearer <AIRLOCK_API_TOKEN>
 ```
 
-This guards `/api/meta` and every `/api/sessions` route. Three paths are
+This guards `/api/meta` and every `/api/sessions` route. These paths are
 intentionally **auth-exempt**:
 
-- `/healthz` and `/health` — probes must work without a token.
+- `/healthz`, `/health`, and `/readyz` — probes must work without a token.
 - `/s/:sessionId` — the session id is itself an unguessable capability, and the
   link is opened by plain browser navigation that cannot carry a header.
+
+`GET /metrics` is **not** auth-exempt — it requires the same bearer token as
+the management API.
 
 `POST /api/internal/prune` uses a separate shared secret
 (`AIRLOCK_INTERNAL_TOKEN`), not the bearer token. When no `AIRLOCK_API_TOKEN`
@@ -38,7 +41,9 @@ expose. See [docs/configuration.md](configuration.md).
 
 | Method   | Path                       | Auth   | Description                                      |
 | -------- | -------------------------- | ------ | ------------------------------------------------ |
-| `GET`    | `/healthz`, `/health`      | none   | Health check                                     |
+| `GET`    | `/healthz`, `/health`      | none   | Liveness check                                   |
+| `GET`    | `/readyz`                  | none   | Readiness check (Docker engine reachability)     |
+| `GET`    | `/metrics`                 | bearer | Prometheus metrics exposition                    |
 | `GET`    | `/api/meta`                | bearer | Browser catalog + TTL bounds for the dashboard   |
 | `POST`   | `/api/sessions`            | bearer | Create a new browser session                     |
 | `GET`    | `/api/sessions`            | bearer | List active sessions                             |
@@ -46,6 +51,30 @@ expose. See [docs/configuration.md](configuration.md).
 | `DELETE` | `/api/sessions/:sessionId` | bearer | Stop and remove a session                        |
 | `POST`   | `/api/internal/prune`      | token  | Prune all expired sessions                       |
 | `GET`    | `/s/:sessionId`            | none   | Public short URL (redirects to container stream) |
+
+## `GET /healthz`, `GET /health`
+
+Liveness probes. Always return `200` with `{"ok":true}` as long as the API
+process is up; they do not check the Docker engine.
+
+## `GET /readyz`
+
+Readiness probe (auth-exempt). Pings the Docker engine. Returns `200` with
+`{"ok":true,"engine":"reachable"}` when the engine responds, otherwise `503`
+with `{"ok":false,"engine":"unreachable"}`.
+
+## `GET /metrics`
+
+Prometheus text exposition (bearer-auth required, same as the management API).
+Content-Type is `text/plain; version=0.0.4`. Exposes:
+
+| Metric                                  | Type    | Description                 |
+| --------------------------------------- | ------- | --------------------------- |
+| `airlock_sessions_created_total`        | counter | Sessions created            |
+| `airlock_sessions_stopped_total`        | counter | Sessions stopped (delete)   |
+| `airlock_sessions_expired_total`        | counter | Sessions expired and pruned |
+| `airlock_session_create_failures_total` | counter | Session creation failures   |
+| `airlock_sessions_active`               | gauge   | Currently active sessions   |
 
 ## `POST /api/sessions`
 
@@ -75,23 +104,34 @@ Create a new disposable browser session.
   "browser": "chromium",
   "targetUrl": "https://example.com",
   "browserUrl": "https://localhost:32792",
+  "vncPassword": "...",
   "createdAt": "2026-04-20T05:30:00.000Z",
   "expiresAt": "2026-04-20T06:00:00.000Z",
   "sessionUrl": "http://localhost:8787/s/..."
 }
 ```
 
-| Field        | Type   | Notes                                                           |
-| ------------ | ------ | --------------------------------------------------------------- |
-| `sessionId`  | string | UUID identifying the session                                    |
-| `browser`    | string | The launched browser kind                                       |
-| `targetUrl`  | string | URL the session was created for                                 |
-| `browserUrl` | string | Direct stream URL of the running container (host + mapped port) |
-| `createdAt`  | string | ISO-8601 timestamp                                              |
-| `expiresAt`  | string | ISO-8601 timestamp                                              |
-| `sessionUrl` | string | Public short URL — `<AIRLOCK_PUBLIC_BASE_URL>/s/<sessionId>`    |
+| Field         | Type   | Notes                                                           |
+| ------------- | ------ | --------------------------------------------------------------- |
+| `sessionId`   | string | UUID identifying the session                                    |
+| `browser`     | string | The launched browser kind                                       |
+| `targetUrl`   | string | URL the session was created for                                 |
+| `browserUrl`  | string | Direct stream URL of the running container (host + mapped port) |
+| `vncPassword` | string | Per-session random VNC password the viewer logs in with         |
+| `createdAt`   | string | ISO-8601 timestamp                                              |
+| `expiresAt`   | string | ISO-8601 timestamp                                              |
+| `sessionUrl`  | string | Public short URL — `<AIRLOCK_PUBLIC_BASE_URL>/s/<sessionId>`    |
 
-Container-level details (container ID, container name, host port, runtime status) are intentionally not part of the response — they live as locals inside the session runtime and never cross the public seam.
+Each session gets a **distinct** `vncPassword` — knowing one stream's
+credentials never grants access to another. Container-level details (container
+ID, container name, host port, runtime status) are intentionally not part of
+the response — they live as locals inside the session runtime and never cross
+the public seam.
+
+`POST /api/sessions` returns `429` when the concurrent-session cap
+(`AIRLOCK_MAX_SESSIONS`) is reached or the per-IP rate limit
+(`AIRLOCK_RATE_LIMIT_*`) is exceeded; the rate-limited response carries a
+`Retry-After` header.
 
 ## `GET /api/meta`
 
@@ -104,9 +144,13 @@ catalog and the configured TTL defaults/bounds.
   "defaultBrowser": "chromium",
   "defaultTtlSeconds": 1800,
   "ttlMinSeconds": 60,
-  "ttlMaxSeconds": 86400
+  "ttlMaxSeconds": 86400,
+  "maxSessions": 25
 }
 ```
+
+`maxSessions` is the concurrent-session cap (`AIRLOCK_MAX_SESSIONS`); `0` means
+unlimited.
 
 ## `GET /api/sessions`
 
@@ -121,6 +165,7 @@ shape as the `POST /api/sessions` response.
       "browser": "chromium",
       "targetUrl": "https://example.com",
       "browserUrl": "https://localhost:32792",
+      "vncPassword": "...",
       "createdAt": "2026-04-20T05:30:00.000Z",
       "expiresAt": "2026-04-20T06:00:00.000Z",
       "sessionUrl": "http://localhost:8787/s/..."
@@ -161,10 +206,11 @@ All error responses (other than `204` and `302`) return JSON of the form:
 { "error": "..." }
 ```
 
-| Status | When                                                                                                                   |
-| ------ | ---------------------------------------------------------------------------------------------------------------------- |
-| `400`  | Request body fails schema validation (`POST /api/sessions`)                                                            |
-| `401`  | Missing/wrong bearer token on a management route, or missing/wrong `x-airlock-internal-token` on `/api/internal/prune` |
-| `404`  | Session not found                                                                                                      |
-| `410`  | Session has expired (the runtime stops the container before responding)                                                |
-| `500`  | Unexpected server error                                                                                                |
+| Status | When                                                                                                                          |
+| ------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| `400`  | Request body fails schema validation (`POST /api/sessions`)                                                                   |
+| `401`  | Missing/wrong bearer token on a management route, or missing/wrong `x-airlock-internal-token` on `/api/internal/prune`        |
+| `404`  | Session not found                                                                                                             |
+| `410`  | Session has expired (the runtime stops the container before responding)                                                       |
+| `429`  | Concurrent-session cap reached or per-IP rate limit exceeded (`POST /api/sessions`); rate-limited responses set `Retry-After` |
+| `500`  | Unexpected server error                                                                                                       |

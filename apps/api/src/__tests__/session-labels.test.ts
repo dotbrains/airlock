@@ -15,6 +15,7 @@ describe("session labels codec", () => {
       sessionId: "s1",
       browser: "firefox",
       targetUrl: "https://example.com",
+      vncPassword: "secret",
       createdAt,
       expiresAt
     });
@@ -25,6 +26,7 @@ describe("session labels codec", () => {
       sessionId: "s1",
       browser: "firefox",
       targetUrl: "https://example.com",
+      vncPassword: "secret",
       createdAt: createdAt.toISOString(),
       expiresAt: expiresAt.toISOString()
     });
@@ -72,6 +74,7 @@ describe("session labels codec", () => {
       sessionId: "s1",
       browser: "chromium",
       targetUrl: "https://example.com",
+      vncPassword: "secret",
       createdAt,
       expiresAt
     });
@@ -84,6 +87,7 @@ describe("session labels codec", () => {
       sessionId: "s1",
       browser: "firefox",
       targetUrl: "https://example.com",
+      vncPassword: "secret",
       createdAt,
       expiresAt
     });

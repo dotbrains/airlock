@@ -25,12 +25,20 @@ const openErrorTab = async (message) => {
 
 const createSession = async (targetUrl) => {
   const { apiBaseUrl = DEFAULT_API_BASE_URL } = await extAPI.storage.sync.get("apiBaseUrl");
+  // Token lives in storage.local (never synced to vendor servers).
+  const { apiToken = "" } = await extAPI.storage.local.get("apiToken");
   const baseUrl = trimTrailingSlash(apiBaseUrl);
+  const headers = {
+    "content-type": "application/json"
+  };
+  // Send the bearer token when configured so a token-protected API accepts the
+  // request; without it the API returns 401.
+  if (apiToken) {
+    headers.authorization = `Bearer ${apiToken}`;
+  }
   const response = await fetch(`${baseUrl}/api/sessions`, {
     method: "POST",
-    headers: {
-      "content-type": "application/json"
-    },
+    headers,
     body: JSON.stringify({
       targetUrl
     })

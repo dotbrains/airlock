@@ -1,32 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { AirlockConfig } from "../config";
 import { toSessionResponse } from "../session-response";
+import { makeTestConfig } from "./_config";
 import { makeSession } from "./_fakes";
 
-const config: AirlockConfig = {
+const config: AirlockConfig = makeTestConfig({
   server: {
     port: 8787,
+    bindHost: "0.0.0.0",
     publicBaseUrl: "https://airlock.example.com",
-    sessionHost: "localhost"
-  },
-  sessionDefaults: { ttlSeconds: 1800, browser: "chromium" },
-  containerLaunch: {
-    dockerSocketPath: "/var/run/docker.sock",
-    shmSizeBytes: 1073741824,
-    vncPassword: "pw",
-    browserImages: {
-      chromium: "kasmweb/chromium:1.18.0",
-      chrome: "kasmweb/chrome:1.18.0",
-      firefox: "kasmweb/firefox:1.18.0",
-      edge: "kasmweb/edge:1.18.0",
-      brave: "kasmweb/brave:1.18.0",
-      vivaldi: "kasmweb/vivaldi:1.18.0",
-      tor: "kasmweb/tor-browser:1.18.0"
-    }
-  },
-  auth: {},
-  internal: {}
-};
+    sessionHost: "localhost",
+    trustProxyHops: 1
+  }
+});
 
 describe("toSessionResponse", () => {
   it("appends sessionUrl built from publicBaseUrl + sessionId", () => {

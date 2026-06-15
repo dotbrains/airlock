@@ -31,6 +31,13 @@
     <h1>Airlock Extension Settings</h1>
     <label for="apiBaseUrl">Airlock API Base URL</label>
     <input id="apiBaseUrl" type="url" placeholder="http://localhost:8787" />
+    <label for="apiToken">API Token (optional)</label>
+    <input
+      id="apiToken"
+      type="password"
+      autocomplete="off"
+      placeholder="AIRLOCK_API_TOKEN — required if the API is protected"
+    />
     <button id="save">Save</button>
     <p id="status"></p>
     <script src="options.js"></script>

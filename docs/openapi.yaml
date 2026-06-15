@@ -53,6 +53,47 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Health"
+  /readyz:
+    get:
+      summary: Readiness probe (Docker engine reachability).
+      description: >-
+        Auth-exempt readiness probe. Pings the Docker engine; returns 200 when
+        the engine responds, 503 when it does not.
+      operationId: getReadyz
+      tags:
+        - health
+      security: []
+      responses:
+        "200":
+          description: Docker engine is reachable.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Readiness"
+        "503":
+          description: Docker engine is unreachable.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Readiness"
+  /metrics:
+    get:
+      summary: Prometheus metrics exposition.
+      description: >-
+        Prometheus text exposition. Requires the same bearer token as the
+        management API.
+      operationId: getMetrics
+      tags:
+        - health
+      responses:
+        "200":
+          description: Prometheus metrics.
+          content:
+            text/plain:
+              schema:
+                type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
   /api/meta:
     get:
       summary: Browser catalog and TTL bounds for the dashboard.
@@ -91,6 +132,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
         "500":
           $ref: "#/components/responses/ServerError"
     get:
@@ -242,6 +285,18 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/Error"
+    TooManyRequests:
+      description: >-
+        Concurrent-session cap reached or per-IP rate limit exceeded.
+      headers:
+        Retry-After:
+          description: Seconds to wait before retrying (rate-limited responses only).
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
     ServerError:
       description: Unexpected server error.
       content:
@@ -258,6 +313,22 @@ components:
         ok:
           type: boolean
           example: true
+    Readiness:
+      type: object
+      additionalProperties: false
+      required:
+        - ok
+        - engine
+      properties:
+        ok:
+          type: boolean
+          example: true
+        engine:
+          type: string
+          enum:
+            - reachable
+            - unreachable
+          example: reachable
     Meta:
       type: object
       additionalProperties: false
@@ -267,6 +338,7 @@ components:
         - defaultTtlSeconds
         - ttlMinSeconds
         - ttlMaxSeconds
+        - maxSessions
       properties:
         browsers:
           type: array
@@ -292,6 +364,10 @@ components:
         ttlMaxSeconds:
           type: integer
           example: 86400
+        maxSessions:
+          type: integer
+          description: Concurrent-session cap (AIRLOCK_MAX_SESSIONS); 0 means unlimited.
+          example: 25
     BrowserKind:
       type: string
       description: One of the supported browser kinds.
@@ -332,6 +408,7 @@ components:
         - browser
         - targetUrl
         - browserUrl
+        - vncPassword
         - createdAt
         - expiresAt
         - sessionUrl
@@ -351,6 +428,11 @@ components:
           format: uri
           description: Direct stream URL of the running container (host + mapped port).
           example: https://localhost:32792
+        vncPassword:
+          type: string
+          description: >-
+            Per-session random VNC password the viewer logs in with. Each
+            session gets a distinct secret.
         createdAt:
           type: string
           format: date-time
