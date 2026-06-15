@@ -30,6 +30,7 @@ const baseConfig: AirlockConfig = {
       tor: "kasmweb/tor-browser:1.18.0"
     }
   },
+  auth: {},
   internal: {}
 };
 
@@ -157,6 +158,51 @@ describe("DockerSessionRuntime", () => {
       docker: docker as unknown as Docker
     });
     expect(await runtime.getSession("missing")).toBeNull();
+  });
+
+  it("listSessions maps every managed container, newest first", async () => {
+    const older = makeFakeContainer({
+      Id: "older",
+      Labels: encodeSessionLabels({
+        sessionId: "older",
+        browser: "firefox",
+        targetUrl: "https://a.example",
+        createdAt: new Date("2026-04-30T11:00:00.000Z"),
+        expiresAt: new Date("2026-04-30T11:30:00.000Z")
+      })
+    });
+    const newer = makeFakeContainer({
+      Id: "newer",
+      Labels: encodeSessionLabels({
+        sessionId: "newer",
+        browser: "chromium",
+        targetUrl: "https://b.example",
+        createdAt: new Date("2026-04-30T12:00:00.000Z"),
+        expiresAt: new Date("2026-04-30T12:30:00.000Z")
+      })
+    });
+    const docker = new FakeDocker({ containers: [older, newer] });
+    const runtime = new DockerSessionRuntime({
+      config: baseConfig,
+      docker: docker as unknown as Docker
+    });
+
+    const sessions = await runtime.listSessions();
+    expect(sessions.map((session) => session.sessionId)).toEqual(["newer", "older"]);
+  });
+
+  it("listSessions skips unmanaged containers", async () => {
+    const managed = makeFakeContainer();
+    const unmanaged = makeFakeContainer({ Id: "u", Labels: {} });
+    const docker = new FakeDocker({ containers: [managed, unmanaged] });
+    const runtime = new DockerSessionRuntime({
+      config: baseConfig,
+      docker: docker as unknown as Docker
+    });
+
+    const sessions = await runtime.listSessions();
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0].sessionId).toBe("s-1");
   });
 
   it("stopSession removes the container and returns true", async () => {

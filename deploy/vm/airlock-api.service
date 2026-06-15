@@ -1,0 +1,25 @@
+# Airlock API + dashboard. Runs the shared image as a foreground container
+# under systemd, mounting the host Docker socket so it can spawn browser
+# containers. Install to /etc/systemd/system/ and `systemctl enable --now`.
+[Unit]
+Description=Airlock API and dashboard
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Restart=always
+RestartSec=5
+# Remove any stale container from a previous run before starting.
+ExecStartPre=-/usr/bin/docker rm -f airlock-api
+ExecStart=/usr/bin/docker run --rm --name airlock-api \
+  --env-file /etc/airlock.env \
+  --env AIRLOCK_PORT=8787 \
+  -p 127.0.0.1:8787:8787 \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  airlock:latest \
+  bun apps/api/dist/index.js
+ExecStop=/usr/bin/docker stop airlock-api
+
+[Install]
+WantedBy=multi-user.target

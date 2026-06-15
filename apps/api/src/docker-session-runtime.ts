@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import Docker from "dockerode";
 import {
   AirlockSession,
@@ -22,6 +24,39 @@ const portKey = (containerPort: number): string => `${containerPort}/tcp`;
 const toEnvList = (env: Record<string, string>): string[] =>
   Object.entries(env).map(([key, value]) => `${key}=${value}`);
 
+// Resolve how dockerode connects: a remote engine via AIRLOCK_DOCKER_HOST
+// (tcp://host:port, with optional TLS material from a cert directory) takes
+// precedence; otherwise we fall back to the local unix socket. Remote hosts
+// are what make the managed-PaaS deploy adapters viable — those platforms
+// expose no local socket, so the API talks to an engine over the network.
+const dockerConnectionOptions = (
+  launch: AirlockConfig["containerLaunch"]
+): Docker.DockerOptions => {
+  if (!launch.dockerHost) {
+    return { socketPath: launch.dockerSocketPath };
+  }
+
+  const url = new URL(launch.dockerHost);
+  const useTls = url.protocol === "https:" || Boolean(launch.dockerCertPath);
+  const base: Docker.DockerOptions = {
+    host: url.hostname,
+    port: Number.parseInt(url.port, 10) || (useTls ? 2376 : 2375),
+    protocol: useTls ? "https" : "http"
+  };
+
+  if (!launch.dockerCertPath) {
+    return base;
+  }
+
+  const certDir = launch.dockerCertPath;
+  return {
+    ...base,
+    ca: readFileSync(path.join(certDir, "ca.pem")),
+    cert: readFileSync(path.join(certDir, "cert.pem")),
+    key: readFileSync(path.join(certDir, "key.pem"))
+  };
+};
+
 export interface DockerSessionRuntimeOptions {
   config: AirlockConfig;
   docker?: Docker;
@@ -34,7 +69,7 @@ export class DockerSessionRuntime implements SessionRuntime {
   constructor(options: DockerSessionRuntimeOptions) {
     this.config = options.config;
     this.docker =
-      options.docker ?? new Docker({ socketPath: this.config.containerLaunch.dockerSocketPath });
+      options.docker ?? new Docker(dockerConnectionOptions(this.config.containerLaunch));
   }
 
   async createSession(input: CreateSessionInput): Promise<AirlockSession> {
@@ -104,6 +139,24 @@ export class DockerSessionRuntime implements SessionRuntime {
       return null;
     }
     return this.mapContainerToSession(match.container, match.decoded);
+  }
+
+  async listSessions(): Promise<AirlockSession[]> {
+    const containers = await this.listManagedContainers(false);
+    const sessions: AirlockSession[] = [];
+
+    for (const container of containers) {
+      const decoded = decodeSessionLabels(container.Labels, this.config.sessionDefaults.browser);
+      if (!decoded) {
+        continue;
+      }
+      const session = this.mapContainerToSession(container, decoded);
+      if (session) {
+        sessions.push(session);
+      }
+    }
+
+    return sessions.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 
   async stopSession(sessionId: string): Promise<boolean> {

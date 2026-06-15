@@ -1,0 +1,16 @@
+# Keep the build context lean and deterministic — install happens in-image.
+node_modules
+**/node_modules
+dist
+**/dist
+.git
+.github
+coverage
+.env
+.env.local
+*.log
+extensions
+docs
+deploy
+**/.vite
+.DS_Store

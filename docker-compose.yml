@@ -1,29 +1,42 @@
+# Root convenience compose: builds the shared image once and runs the full
+# stack — API + bundled dashboard on http://localhost:8787 and the cleanup
+# worker. The API drives the host Docker engine through the mounted socket to
+# spawn Kasm browser containers.
+#
+# `docker compose up --build`
+#
+# This is the same image and contract as deploy/docker-compose/ — see
+# deploy/README.md for the provider matrix and production guidance. For a
+# hot-reloading dev loop instead, run `bun run dev:api|dev:worker|dev:web`.
 services:
   api:
-    image: oven/bun:1
-    working_dir: /workspace
-    volumes:
-      - ./:/workspace
-      - /var/run/docker.sock:/var/run/docker.sock
-    command: sh -c "bun install && bun run --filter @airlock/api dev"
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: airlock:local
+    command: ["bun", "apps/api/dist/index.js"]
+    ports:
+      - "8787:8787"
     environment:
-      AIRLOCK_PORT: 8787
+      AIRLOCK_PORT: "8787"
       AIRLOCK_PUBLIC_BASE_URL: http://localhost:8787
       AIRLOCK_SESSION_HOST: localhost
       AIRLOCK_VNC_PASSWORD: change-me
-      AIRLOCK_DEFAULT_TTL_SECONDS: 1800
+      AIRLOCK_DEFAULT_TTL_SECONDS: "1800"
+      # Set a token before exposing this beyond localhost.
+      AIRLOCK_API_TOKEN: ""
       AIRLOCK_INTERNAL_TOKEN: local-dev-token
-    ports:
-      - "8787:8787"
-  worker:
-    image: oven/bun:1
-    working_dir: /workspace
     volumes:
-      - ./:/workspace
-    command: sh -c "bun install && bun run --filter @airlock/worker dev"
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+
+  worker:
+    image: airlock:local
+    command: ["bun", "apps/worker/dist/index.js"]
     depends_on:
       - api
     environment:
       AIRLOCK_API_BASE_URL: http://api:8787
       AIRLOCK_INTERNAL_TOKEN: local-dev-token
-      AIRLOCK_CLEANUP_INTERVAL_MS: 30000
+      AIRLOCK_CLEANUP_INTERVAL_MS: "30000"
+    restart: unless-stopped

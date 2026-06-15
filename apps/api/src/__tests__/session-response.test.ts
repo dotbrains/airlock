@@ -24,6 +24,7 @@ const config: AirlockConfig = {
       tor: "kasmweb/tor-browser:1.18.0"
     }
   },
+  auth: {},
   internal: {}
 };
 

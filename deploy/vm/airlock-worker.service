@@ -1,0 +1,21 @@
+# Airlock cleanup worker. Polls the API's prune endpoint to reap expired
+# browser sessions. Shares AIRLOCK_INTERNAL_TOKEN with the API via the env file.
+[Unit]
+Description=Airlock cleanup worker
+Requires=docker.service airlock-api.service
+After=airlock-api.service
+
+[Service]
+Restart=always
+RestartSec=5
+ExecStartPre=-/usr/bin/docker rm -f airlock-worker
+ExecStart=/usr/bin/docker run --rm --name airlock-worker \
+  --env-file /etc/airlock.env \
+  --env AIRLOCK_API_BASE_URL=http://host.docker.internal:8787 \
+  --add-host host.docker.internal:host-gateway \
+  airlock:latest \
+  bun apps/worker/dist/index.js
+ExecStop=/usr/bin/docker stop airlock-worker
+
+[Install]
+WantedBy=multi-user.target

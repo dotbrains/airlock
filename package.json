@@ -11,8 +11,9 @@
     "build": "bun run --filter='*' build",
     "dev:api": "bun run --filter @airlock/api dev",
     "dev:worker": "bun run --filter @airlock/worker dev",
-    "format": "prettier --write \"**/*.{ts,js,json,html,css,md,yml}\"",
-    "format:check": "prettier --check \"**/*.{ts,js,json,html,css,md,yml}\"",
+    "dev:web": "bun run --filter @airlock/web dev",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,html,css,md,yml}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,json,html,css,md,yml}\"",
     "lint": "oxlint apps packages",
     "typecheck": "bun run --filter='*' typecheck",
     "test": "bun run --filter='*' test"

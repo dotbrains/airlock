@@ -34,11 +34,15 @@ flowchart TB
 | `AIRLOCK_PORT`                | `8787`                       | API server port                                                                                       |
 | `AIRLOCK_PUBLIC_BASE_URL`     | `http://localhost:8787`      | Public base URL for session links                                                                     |
 | `AIRLOCK_SESSION_HOST`        | `localhost`                  | Host used in redirect URLs to browser containers                                                      |
-| `AIRLOCK_DOCKER_SOCKET_PATH`  | `/var/run/docker.sock`       | Path to the Docker socket                                                                             |
+| `AIRLOCK_DOCKER_SOCKET_PATH`  | `/var/run/docker.sock`       | Path to the local Docker socket (used when `AIRLOCK_DOCKER_HOST` is unset)                            |
+| `AIRLOCK_DOCKER_HOST`         | _(none)_                     | Remote Docker engine, e.g. `tcp://host:2376`. Overrides the socket — used by managed-PaaS deploys     |
+| `AIRLOCK_DOCKER_CERT_PATH`    | _(none)_                     | Directory with `ca.pem`/`cert.pem`/`key.pem` for a TLS-protected `AIRLOCK_DOCKER_HOST`                |
 | `AIRLOCK_DEFAULT_TTL_SECONDS` | `1800`                       | Default session lifetime when the request omits `ttlSeconds` (clamped 60–86400)                       |
 | `AIRLOCK_DEFAULT_BROWSER`     | `chromium`                   | Default browser kind (`chromium`, `chrome`, `firefox`, `edge`, `brave`, `vivaldi`, `tor`)             |
 | `AIRLOCK_VNC_PASSWORD`        | `change-me`                  | VNC password for browser containers                                                                   |
 | `AIRLOCK_SHM_SIZE_BYTES`      | `1073741824`                 | Shared memory size for containers (clamped 256MB–4GB)                                                 |
+| `AIRLOCK_API_TOKEN`           | _(none)_                     | Bearer token gating the dashboard + management API. When unset, the API is unauthenticated            |
+| `AIRLOCK_WEB_DIR`             | _(auto)_                     | Absolute path to a built dashboard to serve from the API. The image sets `dist/public` automatically  |
 | `AIRLOCK_INTERNAL_TOKEN`      | _(none)_                     | Token to protect the prune endpoint. When set, requests must send `x-airlock-internal-token: <token>` |
 | `AIRLOCK_IMAGE_CHROMIUM`      | `kasmweb/chromium:1.18.0`    | Docker image for Chromium                                                                             |
 | `AIRLOCK_IMAGE_CHROME`        | `kasmweb/chrome:1.18.0`      | Docker image for Chrome                                                                               |
@@ -69,9 +73,14 @@ flowchart TB
 ```bash
 bun install
 cp .env.example .env
-bun run dev:api    # in one terminal
-bun run dev:worker # in another terminal
+bun run dev:api    # terminal 1 — API + session runtime
+bun run dev:worker # terminal 2 — cleanup worker
+bun run dev:web    # terminal 3 — dashboard (Vite, proxies /api → :8787)
 ```
+
+The dashboard dev server runs on <http://localhost:5173> and proxies `/api`
+and `/s` to the API. In production the API serves the built dashboard itself
+(see [web.md](web.md)), so only the API and worker processes run.
 
 ### Docker Compose Mode
 
