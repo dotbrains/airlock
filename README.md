@@ -1,6 +1,5 @@
-<p align="center">
-  <img src="site/public/favicon.svg" alt="Airlock logo" width="96" height="96" />
-</p>
+<img src="site/public/favicon.svg" alt="Airlock logo" width="96" height="96" />
+
 
 # Airlock 🔐
 
