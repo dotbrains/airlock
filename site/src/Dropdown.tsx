@@ -1,6 +1,6 @@
-import { type ReactNode, useEffect, useRef, useState } from 'react'
+import { type ReactNode, useEffect, useRef, useState } from "react";
 
-export type Option = { value: string; name: string; label?: string }
+export type Option = { value: string; name: string; label?: string };
 
 // A custom listbox shared by every dropdown on the page, so each option can
 // show a logo (browsers) or read uniformly (TTL) — a native <select> can only
@@ -9,56 +9,59 @@ export default function Dropdown({
   value,
   onChange,
   options,
-  renderIcon,
+  renderIcon
 }: {
-  value: string
-  onChange: (value: string) => void
-  options: Option[]
-  renderIcon?: (value: string) => ReactNode
+  value: string;
+  onChange: (value: string) => void;
+  options: Option[];
+  renderIcon?: (value: string) => ReactNode;
 }) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(false);
   const [active, setActive] = useState(() =>
-    Math.max(0, options.findIndex((o) => o.value === value)),
-  )
-  const ref = useRef<HTMLDivElement>(null)
-  const selected = options.find((o) => o.value === value) ?? options[0]
+    Math.max(
+      0,
+      options.findIndex((o) => o.value === value)
+    )
+  );
+  const ref = useRef<HTMLDivElement>(null);
+  const selected = options.find((o) => o.value === value) ?? options[0];
 
   useEffect(() => {
-    if (!open) return
+    if (!open) return;
     const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', onDown)
-    return () => document.removeEventListener('mousedown', onDown)
-  }, [open])
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [open]);
 
   const choose = (v: string) => {
-    onChange(v)
-    setOpen(false)
-  }
+    onChange(v);
+    setOpen(false);
+  };
 
   const onKey = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      setOpen(false)
-      return
+    if (e.key === "Escape") {
+      setOpen(false);
+      return;
     }
-    if (!open && (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ')) {
-      e.preventDefault()
-      setOpen(true)
-      return
+    if (!open && (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ")) {
+      e.preventDefault();
+      setOpen(true);
+      return;
     }
-    if (!open) return
-    if (e.key === 'ArrowDown') {
-      e.preventDefault()
-      setActive((i) => Math.min(options.length - 1, i + 1))
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault()
-      setActive((i) => Math.max(0, i - 1))
-    } else if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault()
-      choose(options[active].value)
+    if (!open) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActive((i) => Math.min(options.length - 1, i + 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActive((i) => Math.max(0, i - 1));
+    } else if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      choose(options[active].value);
     }
-  }
+  };
 
   return (
     <div className="adrop" ref={ref}>
@@ -87,9 +90,7 @@ export default function Dropdown({
               role="option"
               aria-selected={o.value === value}
               className={
-                'adrop-opt' +
-                (o.value === value ? ' sel' : '') +
-                (i === active ? ' active' : '')
+                "adrop-opt" + (o.value === value ? " sel" : "") + (i === active ? " active" : "")
               }
               onMouseEnter={() => setActive(i)}
               onClick={() => choose(o.value)}
@@ -104,5 +105,5 @@ export default function Dropdown({
         </ul>
       )}
     </div>
-  )
+  );
 }

@@ -1,7 +1,7 @@
-import { type ReactNode } from 'react'
-import { BrowserIcon } from './BrowserIcon'
-import { Code } from './Code'
-import SessionBuilder from './SessionBuilder'
+import { type ReactNode } from "react";
+import { BrowserIcon } from "./BrowserIcon";
+import { Code } from "./Code";
+import SessionBuilder from "./SessionBuilder";
 import {
   BROWSERS,
   CONFIG,
@@ -12,8 +12,8 @@ import {
   PROVIDERS,
   REPO,
   TRACE,
-  USAGE,
-} from './data'
+  USAGE
+} from "./data";
 
 function Mark() {
   return (
@@ -23,7 +23,7 @@ function Mark() {
         <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" strokeWidth="2" />
       </svg>
     </span>
-  )
+  );
 }
 
 function Nav() {
@@ -46,7 +46,7 @@ function Nav() {
         </nav>
       </div>
     </header>
-  )
+  );
 }
 
 function Hero() {
@@ -61,15 +61,14 @@ function Hero() {
             <span className="accent">Nothing</span> sticks to you.
           </h1>
           <p className="lede">
-            <strong>Airlock</strong> opens any link in a short-lived,
-            containerized browser — from a <strong>web dashboard</strong> or by{' '}
-            <strong>right-clicking a link</strong>. Like a cloud-browser service,
-            but it runs <strong>entirely on your own machine</strong>.
+            <strong>Airlock</strong> opens any link in a short-lived, containerized browser — from a{" "}
+            <strong>web dashboard</strong> or by <strong>right-clicking a link</strong>. Like a
+            cloud-browser service, but it runs <strong>entirely on your own machine</strong>.
           </p>
           <p className="lede sub">
-            No cloud, no account, no data leaving the host. The session lives in
-            a throwaway Kasm container that <strong>evaporates on exit</strong> —
-            no profile, no downloads, no lingering logins.
+            No cloud, no account, no data leaving the host. The session lives in a throwaway Kasm
+            container that <strong>evaporates on exit</strong> — no profile, no downloads, no
+            lingering logins.
           </p>
           <div className="cta-row">
             <a className="btn btn-primary" href="#install">
@@ -114,7 +113,7 @@ function Hero() {
         </div>
       </div>
     </section>
-  )
+  );
 }
 
 function Trace() {
@@ -123,8 +122,8 @@ function Trace() {
       <div className="container">
         <h2>Every trace surface, closed</h2>
         <p className="section-lede">
-          What a sketchy link normally leaves on your machine — and what Airlock
-          does with it instead.
+          What a sketchy link normally leaves on your machine — and what Airlock does with it
+          instead.
         </p>
         <div className="trace">
           <div className="trace-head">
@@ -144,7 +143,7 @@ function Trace() {
         </div>
       </div>
     </section>
-  )
+  );
 }
 
 function Entries() {
@@ -153,9 +152,8 @@ function Entries() {
       <div className="container">
         <h2>Two ways in, one API</h2>
         <p className="section-lede">
-          Drive Airlock from a full dashboard or straight from your address bar.
-          Both hit the same session API; both hand back a link to a disposable
-          browser.
+          Drive Airlock from a full dashboard or straight from your address bar. Both hit the same
+          session API; both hand back a link to a disposable browser.
         </p>
         <div className="cards two">
           {ENTRIES.map((e) => (
@@ -172,7 +170,7 @@ function Entries() {
         </div>
       </div>
     </section>
-  )
+  );
 }
 
 function Grants() {
@@ -181,8 +179,8 @@ function Grants() {
       <div className="container">
         <h2>What a session can — and can’t — touch</h2>
         <p className="section-lede">
-          A session is a single browser in a box. It reaches the web and your
-          screen; it never reaches your machine.
+          A session is a single browser in a box. It reaches the web and your screen; it never
+          reaches your machine.
         </p>
         <div className="cards two">
           <div className="card grant ok-card">
@@ -208,21 +206,21 @@ function Grants() {
         </div>
       </div>
     </section>
-  )
+  );
 }
 
 function proofLine(line: string, i: number): ReactNode {
-  let inner: ReactNode = line
-  if (line.trim() === '') {
-    inner = ' '
-  } else if (line.includes('✓')) {
-    inner = <span className="hl-ok">{line}</span>
-  } else if (line.trimStart().startsWith('#')) {
-    inner = <span className="hl-comment">{line}</span>
-  } else if (line.startsWith('airlock:')) {
-    inner = <span className="dim">{line}</span>
+  let inner: ReactNode = line;
+  if (line.trim() === "") {
+    inner = " ";
+  } else if (line.includes("✓")) {
+    inner = <span className="hl-ok">{line}</span>;
+  } else if (line.trimStart().startsWith("#")) {
+    inner = <span className="hl-comment">{line}</span>;
+  } else if (line.startsWith("airlock:")) {
+    inner = <span className="dim">{line}</span>;
   } else {
-    const m = line.match(/^(\s*)(\$)(\s.*)$/)
+    const m = line.match(/^(\s*)(\$)(\s.*)$/);
     if (m) {
       inner = (
         <>
@@ -230,14 +228,14 @@ function proofLine(line: string, i: number): ReactNode {
           <span className="hl-prompt">{m[2]}</span>
           <span className="hl-cmd">{m[3]}</span>
         </>
-      )
+      );
     }
   }
   return (
     <span className="ln" key={i}>
       {inner}
     </span>
-  )
+  );
 }
 
 function Proof() {
@@ -246,9 +244,8 @@ function Proof() {
       <div className="container narrow">
         <h2>Disposable, by construction</h2>
         <p className="section-lede">
-          Create a session over the API, browse, and watch the worker delete the
-          whole container at expiry. There is no profile to clear because there
-          was never a profile.
+          Create a session over the API, browse, and watch the worker delete the whole container at
+          expiry. There is no profile to clear because there was never a profile.
         </p>
         <div className="term proof">
           <div className="term-bar">
@@ -258,12 +255,12 @@ function Proof() {
             <span className="term-title">session lifecycle</span>
           </div>
           <pre className="term-body">
-            <code>{PROOF.split('\n').map(proofLine)}</code>
+            <code>{PROOF.split("\n").map(proofLine)}</code>
           </pre>
         </div>
       </div>
     </section>
-  )
+  );
 }
 
 function Browsers() {
@@ -272,8 +269,8 @@ function Browsers() {
       <div className="container">
         <h2>Seven browsers, all disposable</h2>
         <p className="section-lede">
-          Pick the engine per session. Each is a Kasm container image, pulled on
-          first launch and pre-pullable so the next launch is instant.
+          Pick the engine per session. Each is a Kasm container image, pulled on first launch and
+          pre-pullable so the next launch is instant.
         </p>
         <div className="agent-grid">
           {BROWSERS.map((b) => (
@@ -289,34 +286,41 @@ function Browsers() {
         </div>
       </div>
     </section>
-  )
+  );
 }
 
 function configIcon(title: string): ReactNode {
-  const p = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.8 } as const
-  if (title === 'Session lifetime') {
+  const p = { fill: "none", stroke: "currentColor", strokeWidth: 1.8 } as const;
+  if (title === "Session lifetime") {
     return (
       <svg viewBox="0 0 24 24" width="20" height="20" {...p} strokeLinecap="round">
         <circle cx="12" cy="12" r="8" />
         <path d="M12 8v4l3 2" />
       </svg>
-    )
+    );
   }
-  if (title === 'Resource caps') {
+  if (title === "Resource caps") {
     return (
       <svg viewBox="0 0 24 24" width="20" height="20" {...p} strokeLinejoin="round">
         <rect x="5" y="5" width="14" height="14" rx="2" />
         <line x1="9.5" y1="9.5" x2="14.5" y2="9.5" strokeLinecap="round" />
         <line x1="9.5" y1="14.5" x2="14.5" y2="14.5" strokeLinecap="round" />
       </svg>
-    )
+    );
   }
   return (
-    <svg viewBox="0 0 24 24" width="20" height="20" {...p} strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      width="20"
+      height="20"
+      {...p}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <circle cx="12" cy="12" r="3" />
       <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1" />
     </svg>
-  )
+  );
 }
 
 function Config() {
@@ -348,7 +352,7 @@ function Config() {
         </div>
       </div>
     </section>
-  )
+  );
 }
 
 function Deploy() {
@@ -357,9 +361,9 @@ function Deploy() {
       <div className="container">
         <h2>Local-first, provider-pluggable</h2>
         <p className="section-lede">
-          The happy path is a host you own, where the API reaches the local
-          Docker engine. Beyond that, every adapter builds the same shared image
-          and satisfies one contract — there’s no database to provision.
+          The happy path is a host you own, where the API reaches the local Docker engine. Beyond
+          that, every adapter builds the same shared image and satisfies one contract — there’s no
+          database to provision.
         </p>
         <div className="trace deploy-table">
           <div className="trace-head deploy-head">
@@ -387,7 +391,7 @@ function Deploy() {
         </p>
       </div>
     </section>
-  )
+  );
 }
 
 function Install() {
@@ -410,7 +414,7 @@ function Install() {
         <Code>{USAGE}</Code>
       </div>
     </section>
-  )
+  );
 }
 
 function Secure() {
@@ -419,11 +423,10 @@ function Secure() {
       <div className="container narrow center">
         <h2>Secure before you expose</h2>
         <p className="section-lede">
-          The management API is unauthenticated until you set{' '}
-          <code>AIRLOCK_API_TOKEN</code>. A mounted Docker socket is
-          root-equivalent on the host — keep the API behind the token and a
-          TLS-terminating proxy. Bound beyond loopback with no token, Airlock
-          logs a loud startup warning rather than fail silent.
+          The management API is unauthenticated until you set <code>AIRLOCK_API_TOKEN</code>. A
+          mounted Docker socket is root-equivalent on the host — keep the API behind the token and a
+          TLS-terminating proxy. Bound beyond loopback with no token, Airlock logs a loud startup
+          warning rather than fail silent.
         </p>
         <p>
           <a
@@ -437,7 +440,7 @@ function Secure() {
         </p>
       </div>
     </section>
-  )
+  );
 }
 
 function Footer() {
@@ -450,7 +453,7 @@ function Footer() {
             airlock
           </a>
           <p className="muted">
-            Local, disposable browser isolation ·{' '}
+            Local, disposable browser isolation ·{" "}
             <a href={`${REPO}/blob/main/LICENSE`} target="_blank" rel="noreferrer">
               PolyForm Shield 1.0.0
             </a>
@@ -470,7 +473,7 @@ function Footer() {
         </div>
       </div>
     </footer>
-  )
+  );
 }
 
 export default function App() {
@@ -492,5 +495,5 @@ export default function App() {
       </main>
       <Footer />
     </>
-  )
+  );
 }
