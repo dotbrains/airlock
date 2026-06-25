@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="site/public/favicon.svg" alt="Airlock logo" width="96" height="96" />
+</p>
+
 # Airlock 🔐
 
 [![License](https://img.shields.io/badge/License-PolyForm_Shield_1.0-blue)](LICENSE)
